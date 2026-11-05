@@ -1,0 +1,116 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; background: #eef1f5; color: #1f2329;
+  font-family: "Microsoft YaHei", "PingFang SC", "HarmonyOS Sans SC", sans-serif; }
+.page { width: 1180px; margin: 32px auto; background: #fff; border-radius: 14px;
+  box-shadow: 0 10px 34px rgba(15, 23, 42, .10); padding: 40px 48px 46px; }
+h1 { font-size: 36px; margin: 0 0 6px; display: flex; align-items: center; gap: 14px; }
+h2 { font-size: 24px; margin: 30px 0 12px; }
+.sub { color: #64748b; font-size: 15px; margin-bottom: 26px; }
+.check { width: 48px; height: 48px; border-radius: 10px; background: #22c55e; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 32px; }
+table { width: 100%; border-collapse: collapse; font-size: 15.5px; }
+th, td { border: 1px solid #e2e8f0; padding: 11px 14px; text-align: left; vertical-align: top; line-height: 1.6; }
+th { background: #f8fafc; font-weight: 600; color: #334155; }
+code, .mono { font-family: "Cascadia Code", Consolas, "Courier New", monospace; }
+code { background: #f1f5f9; padding: 2px 7px; border-radius: 5px; font-size: 14px; }
+.green { color: #15803d; font-weight: 600; }
+.note { color: #475569; line-height: 1.95; margin-top: 18px; font-size: 15px; }
+.badge { display: inline-block; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;
+  border-radius: 999px; padding: 3px 12px; font-size: 13px; margin-left: 8px; }
+pre { background: #0f172a; color: #e2e8f0; padding: 18px 22px; border-radius: 10px;
+  font-size: 13.5px; line-height: 1.75; overflow: hidden; margin: 16px 0 0; }
+.k { color: #7dd3fc; } .c { color: #86efac; } .s { color: #fca5a5; } .n { color: #fcd34d; }
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 22px 0 4px; }
+.stat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 18px; }
+.stat b { display: block; font-size: 28px; color: #0f172a; }
+.stat span { color: #64748b; font-size: 13px; }
+
+.page { width: 1360px; padding: 32px 40px 38px; }
+.top { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid #e2e8f0; padding-bottom: 18px; }
+.top h1 { font-size: 30px; }
+.top .meta { color: #64748b; font-size: 14px; text-align: right; line-height: 1.8; }
+.grid { grid-template-columns: repeat(5, 1fr); }
+.layout { display: grid; grid-template-columns: 260px 1fr; gap: 26px; margin-top: 22px; }
+.side { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 14px; height: fit-content; }
+.side .conn { font-weight: 600; padding: 6px 8px; }
+.side .db { background: #e0f2fe; color: #075985; border-radius: 6px; padding: 7px 10px; margin: 10px 0 4px; font-weight: 600; }
+.side .item { padding: 6px 10px 6px 26px; color: #334155; font-size: 14px; }
+.side .item.active { background: #fff7ed; border-left: 3px solid #f59e0b; color: #92400e; }
+.side .count { color: #94a3b8; font-size: 12px; margin-left: 4px; }
+table.tables { font-size: 14.5px; }
+table.tables th, table.tables td { padding: 8px 12px; }
+table.tables .num { color: #94a3b8; width: 42px; text-align: center; }
+table.tables td b { font-weight: 600; }
+.tdnote { color: #64748b; font-size: 12.5px; margin-top: 2px; }
+tr.group td { background: #fff7ed; color: #9a3412; font-weight: 600; font-size: 13.5px; letter-spacing: .5px; }
+</style></head><body><div class="page">
+<div class="top">
+  <div><h1>数据库结构总览</h1><div class="sub" style="margin:6px 0 0">奶蛙 Python 学习平台 · 第 15 组 · 实验五</div></div>
+  <div class="meta">MySQL 9.7.0 · utf8mb4<br>容器 mysql · 端口 3307<br>2026-11-05</div>
+</div>
+<div class="grid">
+  <div class="stat"><b>30</b><span>基础表</span></div>
+  <div class="stat"><b>5</b><span>视图</span></div>
+  <div class="stat"><b>5</b><span>业务模块</span></div>
+  <div class="stat"><b>40</b><span>外键约束</span></div>
+  <div class="stat"><b>0</b><span>执行错误</span></div>
+</div>
+<div class="layout">
+  <div class="side">
+    <div class="conn">🖥 本地数据库 mysql9.7</div>
+    <div class="db">🗄 naiwa_learning</div>
+    <div class="item active">▦ 表<span class="count">30</span></div>
+    <div class="item">◫ 视图<span class="count">5</span></div>
+    <div class="item">ƒ 函数<span class="count">0</span></div>
+    <div class="item">👤 用户<span class="count">2</span></div>
+  </div>
+  <div>
+  <table class="tables">
+    <tr><th style="width:42px">#</th><th style="width:250px">表名</th><th>说明 / 关键设计</th></tr>
+    <tr class="group"><td colspan="3">账号与用户画像</td></tr>
+<tr><td class="num">01</td><td><code>users</code></td><td><b>用户表</b><div class="tdnote">手机号/邮箱登录、昵称唯一、角色、登录失败锁定</div></td></tr>
+<tr><td class="num">02</td><td><code>user_profiles</code></td><td><b>用户档案与设置</b><div class="tdnote">等级/经验、连续打卡、每日目标、提醒与编辑器设置</div></td></tr>
+<tr><td class="num">03</td><td><code>user_interests</code></td><td><b>用户兴趣标签</b><div class="tdnote">内容推荐数据源：兴趣 + 权重（0-1）</div></td></tr>
+<tr><td class="num">04</td><td><code>sessions</code></td><td><b>登录会话</b><div class="tdnote">Token 哈希、记住我、IP/UA、过期时间</div></td></tr>
+<tr><td class="num">05</td><td><code>verification_codes</code></td><td><b>验证码</b><div class="tdnote">注册 / 找回密码 / 验证码登录，5 分钟过期</div></td></tr>
+<tr class="group"><td colspan="3">课程内容</td></tr>
+<tr><td class="num">06</td><td><code>courses</code></td><td><b>课程</b><div class="tdnote">课程编号、方向、难度（入门/进阶/挑战）、评分</div></td></tr>
+<tr><td class="num">07</td><td><code>course_tags</code></td><td><b>课程标签</b><div class="tdnote">内容推荐数据源：Python/数据分析/pandas…</div></td></tr>
+<tr><td class="num">08</td><td><code>chapters</code></td><td><b>课程章节</b><div class="tdnote">课程 → 章节的一级结构</div></td></tr>
+<tr><td class="num">09</td><td><code>knowledge_points</code></td><td><b>知识点</b><div class="tdnote">自适应掌握度的最小单元，支持父子层级</div></td></tr>
+<tr><td class="num">10</td><td><code>questions</code></td><td><b>题库</b><div class="tdnote">难度 1-5、示例输入输出、三级提示、题解</div></td></tr>
+<tr><td class="num">11</td><td><code>question_knowledge_points</code></td><td><b>题目-知识点关联</b><div class="tdnote">多对多标签，用于按知识点统计</div></td></tr>
+<tr><td class="num">12</td><td><code>test_cases</code></td><td><b>判题测试用例</b><div class="tdnote">输入 / 期望输出 / 是否示例 / 执行顺序</div></td></tr>
+<tr><td class="num">13</td><td><code>lessons</code></td><td><b>课时</b><div class="tdnote">理论/练习、结构化教程、关联题目、顺序解锁</div></td></tr>
+<tr><td class="num">14</td><td><code>lesson_knowledge_points</code></td><td><b>课时-知识点关联</b><div class="tdnote">课时对知识点的贡献权重</div></td></tr>
+<tr class="group"><td colspan="3">学习与判题</td></tr>
+<tr><td class="num">15</td><td><code>course_enrollments</code></td><td><b>选课与课程进度</b><div class="tdnote">学习状态、进度百分比、最近学习课时</div></td></tr>
+<tr><td class="num">16</td><td><code>user_lesson_progress</code></td><td><b>用户课时进度</b><div class="tdnote">锁定/解锁/进行中/已完成、断点位置</div></td></tr>
+<tr><td class="num">17</td><td><code>learning_records</code></td><td><b>学习记录</b><div class="tdnote">个人中心时间轴：课时 + 练习统一记录</div></td></tr>
+<tr><td class="num">18</td><td><code>code_drafts</code></td><td><b>代码草稿</b><div class="tdnote">课时/练习共用，登录用户云端保存</div></td></tr>
+<tr><td class="num">19</td><td><code>submissions</code></td><td><b>判题提交记录</b><div class="tdnote">判题结果、用例数、失败用例、耗时、提示等级</div></td></tr>
+<tr class="group"><td colspan="3">自适应学习</td></tr>
+<tr><td class="num">20</td><td><code>mastery_scores</code></td><td><b>知识点掌握度</b><div class="tdnote">0-1 分值，答对加分、答错减分（教程核心表）</div></td></tr>
+<tr><td class="num">21</td><td><code>user_behaviors</code></td><td><b>用户行为埋点</b><div class="tdnote">浏览/学习/运行/提交/判题/打卡，协同过滤数据源</div></td></tr>
+<tr><td class="num">22</td><td><code>learning_recommendations</code></td><td><b>个性化推荐</b><div class="tdnote">课程/课时/题目/复习推荐 + 推荐理由 + 优先级</div></td></tr>
+<tr><td class="num">23</td><td><code>daily_questions</code></td><td><b>每日一题</b><div class="tdnote">按日期绑定题目，驱动每日打卡</div></td></tr>
+<tr class="group"><td colspan="3">报告、激励与消息</td></tr>
+<tr><td class="num">24</td><td><code>reports</code></td><td><b>学习报告</b><div class="tdnote">周报/月报、统计指标、薄弱知识点快照</div></td></tr>
+<tr><td class="num">25</td><td><code>share_tokens</code></td><td><b>报告分享令牌</b><div class="tdnote">只读分享链接、过期时间、访问次数</div></td></tr>
+<tr><td class="num">26</td><td><code>favorites</code></td><td><b>收藏</b><div class="tdnote">课程/课时/题目多态收藏</div></td></tr>
+<tr><td class="num">27</td><td><code>achievements</code></td><td><b>成就定义</b><div class="tdnote">第一行代码、连续 7 天、蛙博士之路等 9 项</div></td></tr>
+<tr><td class="num">28</td><td><code>user_achievements</code></td><td><b>用户成就</b><div class="tdnote">解锁时间</div></td></tr>
+<tr><td class="num">29</td><td><code>messages</code></td><td><b>消息中心</b><div class="tdnote">系统/成就/提醒，支持点击跳转</div></td></tr>
+<tr><td class="num">30</td><td><code>user_daily_stats</code></td><td><b>每日学习统计</b><div class="tdnote">学习时长、答题数、经验、连续天数（排行榜/报告）</div></td></tr>
+    <tr class="group"><td colspan="3">视图（5）</td></tr>
+    <tr><td class="num">01</td><td><code>v_course_overview</code></td><td><b>课程概览</b><div class="tdnote">课时数、总时长、学习人数</div></td></tr>
+    <tr><td class="num">02</td><td><code>v_user_learning_summary</code></td><td><b>用户学习概览</b><div class="tdnote">等级/经验、完课数、通过题数、学习时长</div></td></tr>
+    <tr><td class="num">03</td><td><code>v_weekly_leaderboard</code></td><td><b>周学习排行榜</b><div class="tdnote">近 7 天学习时长、通过题数、经验值</div></td></tr>
+    <tr><td class="num">04</td><td><code>v_user_question_status</code></td><td><b>题目状态与星级</b><div class="tdnote">未做 / 未通过 / 已通过 + 0-3 星</div></td></tr>
+    <tr><td class="num">05</td><td><code>v_mastery_target</code></td><td><b>掌握度与目标难度</b><div class="tdnote">掌握度 0-1 → 目标难度 1-5</div></td></tr>
+  </table>
+  </div>
+</div>
+</div></body></html>

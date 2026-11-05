@@ -1,0 +1,131 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; background: #eef1f5; color: #1f2329;
+  font-family: "Microsoft YaHei", "PingFang SC", "HarmonyOS Sans SC", sans-serif; }
+.page { width: 1180px; margin: 32px auto; background: #fff; border-radius: 14px;
+  box-shadow: 0 10px 34px rgba(15, 23, 42, .10); padding: 40px 48px 46px; }
+h1 { font-size: 36px; margin: 0 0 6px; display: flex; align-items: center; gap: 14px; }
+h2 { font-size: 24px; margin: 30px 0 12px; }
+.sub { color: #64748b; font-size: 15px; margin-bottom: 26px; }
+.check { width: 48px; height: 48px; border-radius: 10px; background: #22c55e; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 32px; }
+table { width: 100%; border-collapse: collapse; font-size: 15.5px; }
+th, td { border: 1px solid #e2e8f0; padding: 11px 14px; text-align: left; vertical-align: top; line-height: 1.6; }
+th { background: #f8fafc; font-weight: 600; color: #334155; }
+code, .mono { font-family: "Cascadia Code", Consolas, "Courier New", monospace; }
+code { background: #f1f5f9; padding: 2px 7px; border-radius: 5px; font-size: 14px; }
+.green { color: #15803d; font-weight: 600; }
+.note { color: #475569; line-height: 1.95; margin-top: 18px; font-size: 15px; }
+.badge { display: inline-block; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;
+  border-radius: 999px; padding: 3px 12px; font-size: 13px; margin-left: 8px; }
+pre { background: #0f172a; color: #e2e8f0; padding: 18px 22px; border-radius: 10px;
+  font-size: 13.5px; line-height: 1.75; overflow: hidden; margin: 16px 0 0; }
+.k { color: #7dd3fc; } .c { color: #86efac; } .s { color: #fca5a5; } .n { color: #fcd34d; }
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 22px 0 4px; }
+.stat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 18px; }
+.stat b { display: block; font-size: 28px; color: #0f172a; }
+.stat span { color: #64748b; font-size: 13px; }
+
+.page { width: 1360px; padding: 32px 40px 38px; }
+h1 { font-size: 30px; }
+.codebox { margin-top: 18px; background: #0f172a; border-radius: 12px; padding: 20px 24px; }
+.codebox pre { padding: 0; margin: 0; font-size: 13.5px; line-height: 1.72; background: transparent; }
+.codeline { display: flex; }
+.codeline .ln { width: 40px; color: #475569; text-align: right; padding-right: 16px; flex: none; user-select: none; }
+</style></head><body><div class="page">
+<h1>数据库脚本设计（节选）</h1>
+<div class="sub">数据库 naiwa_learning · 30 张表 + 5 个视图 · 脚本可重复执行（DROP DATABASE 后重建）</div>
+<div class="codebox"><pre><span class="c">-- ============================================================</span>
+<span class="c">-- 奶蛙 Python 学习平台 · 数据库设计脚本</span>
+<span class="c">-- 实验五：后端数据库设计（第 15 组）</span>
+<span class="c">-- 目标数据库：MySQL 8.0+ / 9.x（已在 MySQL 9.7.0 验证）</span>
+<span class="c">--</span>
+<span class="c">-- 设计依据：</span>
+<span class="c">--   1.《奶蛙 Python 学习平台 PRD》V1.1（第 6、10、11 章）</span>
+<span class="c">--   2. 前端项目 003-前端代码（奶蛙 Python 学习平台网页版）</span>
+<span class="c">--   3. 实验教程：内容推荐 + 协同过滤 + 自适应学习闭环</span>
+<span class="c">--</span>
+<span class="c">-- 设计要点：</span>
+<span class="c">--   · 账号、课程、学习、判题、激励、消息、报告等平台主业务；</span>
+<span class="c">--   · 自适应学习：user_behaviors 记录行为，user_interests 记录兴趣，</span>
+<span class="c">--     mastery_scores 记录知识点掌握度（0-1），questions.difficulty</span>
+<span class="c">--     记录题目难度（1-5），learning_recommendations 输出个性化推荐；</span>
+<span class="c">--   · 内容推荐：course_tags × user_interests 计算标签相似度；</span>
+<span class="c">--   · 数据完整性：主外键、唯一约束、CHECK 约束、常用查询索引；</span>
+<span class="c">--   · 脚本可重复执行：先 DROP DATABASE 再重建。</span>
+<span class="c">-- ============================================================</span>
+
+<span class="k">DROP</span> <span class="k">DATABASE</span> <span class="k">IF</span> <span class="k">EXISTS</span> naiwa_learning;
+<span class="k">CREATE</span> <span class="k">DATABASE</span> naiwa_learning
+  <span class="k">DEFAULT</span> CHARACTER <span class="k">SET</span> utf8mb4
+  <span class="k">DEFAULT</span> COLLATE utf8mb4_0900_ai_ci;
+<span class="k">USE</span> naiwa_learning;
+
+<span class="k">SET</span> NAMES utf8mb4;
+<span class="k">SET</span> time_zone = &#x27;+08:00&#x27;;
+
+<span class="c">-- ============================================================</span>
+<span class="c">-- 一、账号与用户画像</span>
+<span class="c">-- ============================================================</span>
+
+<span class="c">-- 1.1 用户表：手机号 / 邮箱注册，密码登录</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> users (
+  id                    BIGINT <span class="k">UNSIGNED</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">AUTO_INCREMENT</span> <span class="k">COMMENT</span> &#x27;用户ID&#x27;,
+  phone                 VARCHAR(20)     <span class="k">DEFAULT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> &#x27;手机号&#x27;,
+  email                 VARCHAR(120)    <span class="k">DEFAULT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> &#x27;邮箱&#x27;,
+  password_hash         VARCHAR(255)    <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> &#x27;密码哈希（bcrypt）&#x27;,
+  nickname              VARCHAR(50)     <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> &#x27;昵称（2-12字符，唯一）&#x27;,
+  avatar_url            VARCHAR(255)    <span class="k">DEFAULT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> &#x27;头像地址&#x27;,
+  role                  <span class="k">ENUM</span>(&#x27;student&#x27;,&#x27;admin&#x27;) <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> &#x27;student&#x27; <span class="k">COMMENT</span> &#x27;角色&#x27;,
+  status                <span class="k">ENUM</span>(&#x27;active&#x27;,&#x27;disabled&#x27;) <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> &#x27;active&#x27; <span class="k">COMMENT</span> &#x27;账号状态&#x27;,
+  failed_login_attempts TINYINT <span class="k">UNSIGNED</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> 0 <span class="k">COMMENT</span> &#x27;连续登录失败次数&#x27;,
+  locked_until          DATETIME        <span class="k">DEFAULT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> &#x27;账号锁定截止时间&#x27;,
+  last_login_at         DATETIME        <span class="k">DEFAULT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> &#x27;最后登录时间&#x27;,
+  created_at            DATETIME        <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> CURRENT_TIMESTAMP <span class="k">COMMENT</span> &#x27;注册时间&#x27;,
+  updated_at            DATETIME        <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> CURRENT_TIMESTAMP <span class="k">ON</span> UPDATE CURRENT_TIMESTAMP <span class="k">COMMENT</span> &#x27;更新时间&#x27;,
+  <span class="k">PRIMARY</span> <span class="k">KEY</span> (id),
+  <span class="k">UNIQUE</span> <span class="k">KEY</span> uk_users_phone (phone),
+  <span class="k">UNIQUE</span> <span class="k">KEY</span> uk_users_email (email),
+  <span class="k">UNIQUE</span> <span class="k">KEY</span> uk_users_nickname (nickname),
+  <span class="k">KEY</span> idx_users_status (status),
+  <span class="k">CONSTRAINT</span> chk_users_account <span class="k">CHECK</span> (phone IS <span class="k">NOT</span> <span class="k">NULL</span> OR email IS <span class="k">NOT</span> <span class="k">NULL</span>)
+) <span class="k">ENGINE</span>=InnoDB <span class="k">DEFAULT</span> CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci <span class="k">COMMENT</span>=&#x27;用户表&#x27;;
+
+<span class="c">-- 1.2 用户档案：新手引导结果、等级/经验、连续打卡、提醒设置</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> user_profiles (
+  user_id                          BIGINT <span class="k">UNSIGNED</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> &#x27;用户ID&#x27;,
+  python_base                      <span class="k">ENUM</span>(&#x27;zero&#x27;,&#x27;basic&#x27;) <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> &#x27;zero&#x27; <span class="k">COMMENT</span> &#x27;Python 基础：零基础/学过一点&#x27;,
+  level                            TINYINT <span class="k">UNSIGNED</span>  <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> 1 <span class="k">COMMENT</span> &#x27;等级 1-5&#x27;,
+  exp                              INT <span class="k">UNSIGNED</span>      <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> 0 <span class="k">COMMENT</span> &#x27;累计经验值&#x27;,
+  streak_days                      SMALLINT <span class="k">UNSIGNED</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> 0 <span class="k">COMMENT</span> &#x27;当前连续打卡天数&#x27;,
+  longest_streak_days              SMALLINT <span class="k">UNSIGNED</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> 0 <span class="k">COMMENT</span> &#x27;历史最长连续打卡天数&#x27;,
+  total_study_minutes              INT <span class="k">UNSIGNED</span>      <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> 0 <span class="k">COMMENT</span> &#x27;累计学习分钟数&#x27;,
+  daily_goal_minutes               SMALLINT <span class="k">UNSIGNED</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> 30 <span class="k">COMMENT</span> &#x27;每日学习目标（分钟）&#x27;,
+  bio                              VARCHAR(50)       <span class="k">DEFAULT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> &#x27;个人简介（≤50字）&#x27;,
+  onboarding_completed             TINYINT(1)        <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> 0 <span class="k">COMMENT</span> &#x27;新手引导是否完成&#x27;,
+  study_reminder_enabled           TINYINT(1)        <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> 1 <span class="k">COMMENT</span> &#x27;是否开启学习提醒&#x27;,
+  reminder_time                    TIME              <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> &#x27;20:00:00&#x27; <span class="k">COMMENT</span> &#x27;学习提醒时间&#x27;,
+  achievement_notification_enabled TINYINT(1)        <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> 1 <span class="k">COMMENT</span> &#x27;是否开启成就通知&#x27;,
+  code_font_size                   <span class="k">ENUM</span>(&#x27;12&#x27;,&#x27;14&#x27;,&#x27;16&#x27;) <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> &#x27;14&#x27; <span class="k">COMMENT</span> &#x27;编辑器字号&#x27;,
+  default_home                     <span class="k">ENUM</span>(&#x27;home&#x27;,&#x27;courses&#x27;,&#x27;profile&#x27;) <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> &#x27;home&#x27; <span class="k">COMMENT</span> &#x27;默认首页&#x27;,
+  updated_at                       DATETIME          <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> CURRENT_TIMESTAMP <span class="k">ON</span> UPDATE CURRENT_TIMESTAMP <span class="k">COMMENT</span> &#x27;更新时间&#x27;,
+  <span class="k">PRIMARY</span> <span class="k">KEY</span> (user_id),
+  <span class="k">CONSTRAINT</span> fk_profiles_user <span class="k">FOREIGN</span> <span class="k">KEY</span> (user_id) <span class="k">REFERENCES</span> users (id) <span class="k">ON</span> DELETE <span class="k">CASCADE</span>,
+  <span class="k">CONSTRAINT</span> chk_profiles_level <span class="k">CHECK</span> (level BETWEEN 1 AND 5)
+) <span class="k">ENGINE</span>=InnoDB <span class="k">DEFAULT</span> CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci <span class="k">COMMENT</span>=&#x27;用户档案与设置表&#x27;;
+
+<span class="c">-- 1.3 用户兴趣：新手引导目标 + 内容推荐标签</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> user_interests (
+  user_id    BIGINT <span class="k">UNSIGNED</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> &#x27;用户ID&#x27;,
+  interest   VARCHAR(50)     <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> &#x27;兴趣标签（办公自动化/数据分析/字符串…）&#x27;,
+  weight     DECIMAL(4,3)    <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> 1.000 <span class="k">COMMENT</span> &#x27;兴趣权重 0-1&#x27;,
+  created_at DATETIME        <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> CURRENT_TIMESTAMP <span class="k">COMMENT</span> &#x27;创建时间&#x27;,
+  <span class="k">PRIMARY</span> <span class="k">KEY</span> (user_id, interest),
+  <span class="k">KEY</span> idx_interests_tag (interest),
+  <span class="k">CONSTRAINT</span> fk_interests_user <span class="k">FOREIGN</span> <span class="k">KEY</span> (user_id) <span class="k">REFERENCES</span> users (id) <span class="k">ON</span> DELETE <span class="k">CASCADE</span>,
+  <span class="k">CONSTRAINT</span> chk_interests_weight <span class="k">CHECK</span> (weight BETWEEN 0 AND 1)
+) <span class="k">ENGINE</span>=InnoDB <span class="k">DEFAULT</span> CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci <span class="k">COMMENT</span>=&#x27;用户兴趣标签表（内容推荐数据源）&#x27;;
+
+<span class="c">-- 1.4 登录会话</span></pre></div>
+</div></body></html>

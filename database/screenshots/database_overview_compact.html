@@ -1,0 +1,96 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; }
+body { margin:0; background:#eef1f5; color:#1f2329;
+  font-family:"Microsoft YaHei","PingFang SC","HarmonyOS Sans SC",sans-serif; }
+.page { width: 1360px; margin: 28px auto; background:#fff; border-radius:14px;
+  box-shadow:0 10px 30px rgba(15,23,42,.10); padding: 32px 40px 34px; }
+.top { display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1px solid #e2e8f0; padding-bottom:16px; }
+h1 { font-size:30px; margin:0; }
+.sub { color:#64748b; font-size:14px; margin-top:6px; }
+.meta { color:#64748b; font-size:13px; text-align:right; line-height:1.8; }
+.stats { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin:18px 0 20px; }
+.stat { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; }
+.stat b { display:block; font-size:24px; }
+.stat span { color:#64748b; font-size:12.5px; }
+.layout { display:grid; grid-template-columns:250px 1fr; gap:22px; }
+.side { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px 12px; height:fit-content; }
+.side .conn { font-weight:600; padding:5px 7px; font-size:14px; }
+.side .db { background:#e0f2fe; color:#075985; border-radius:6px; padding:7px 9px; margin:8px 0 4px; font-weight:600; font-size:14px; }
+.side .item { padding:6px 9px 6px 22px; color:#334155; font-size:13.5px; }
+.side .item.active { background:#fff7ed; border-left:3px solid #f59e0b; color:#92400e; }
+.side .count { color:#94a3b8; font-size:12px; margin-left:4px; }
+.cols { display:grid; grid-template-columns:1fr 1fr; gap:26px; }
+.grp { background:#fff7ed; color:#9a3412; font-weight:600; font-size:12.5px; letter-spacing:.5px;
+  padding:5px 9px; border-radius:5px; margin:10px 0 6px; }
+.grp:first-child { margin-top:0; }
+.row { padding:5px 9px; border-bottom:1px solid #f1f5f9; }
+.row .name code { font-family:"Cascadia Code",Consolas,monospace; font-size:13px; color:#0f172a;
+  background:#f1f5f9; padding:1px 6px; border-radius:4px; }
+.row .note { color:#64748b; font-size:12px; margin-top:2px; }
+.views { margin-top:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; font-size:12.5px; color:#475569; line-height:1.8; }
+.views b { color:#0f172a; }
+</style></head><body><div class="page">
+<div class="top">
+  <div><h1>数据库结构截图</h1><div class="sub">奶蛙 Python 学习平台 · 第 15 组 · 实验五</div></div>
+  <div class="meta">MySQL 9.7.0 · utf8mb4<br>容器 mysql · 端口 3307<br>2026-11-05</div>
+</div>
+<div class="stats">
+  <div class="stat"><b>30</b><span>基础表</span></div>
+  <div class="stat"><b>5</b><span>视图</span></div>
+  <div class="stat"><b>5</b><span>业务模块</span></div>
+  <div class="stat"><b>40</b><span>外键约束</span></div>
+  <div class="stat"><b>0</b><span>执行错误</span></div>
+</div>
+<div class="layout">
+  <div class="side">
+    <div class="conn">🖥 本地数据库 mysql9.7</div>
+    <div class="db">🗄 naiwa_learning</div>
+    <div class="item active">▦ 表<span class="count">30</span></div>
+    <div class="item">◫ 视图<span class="count">5</span></div>
+    <div class="item">ƒ 函数<span class="count">0</span></div>
+    <div class="item">👤 用户<span class="count">2</span></div>
+  </div>
+  <div>
+    <div class="cols">
+      <div><div class="grp">账号与用户画像</div>
+<div class="row"><div class="name"><code>users</code></div><div class="note">用户表 · 手机/邮箱登录、角色、锁定</div></div>
+<div class="row"><div class="name"><code>user_profiles</code></div><div class="note">档案与设置 · 等级/经验、打卡</div></div>
+<div class="row"><div class="name"><code>user_interests</code></div><div class="note">兴趣标签 · 内容推荐数据源</div></div>
+<div class="row"><div class="name"><code>sessions</code></div><div class="note">登录会话 · Token、过期时间</div></div>
+<div class="row"><div class="name"><code>verification_codes</code></div><div class="note">验证码 · 注册/找回/登录</div></div>
+<div class="grp">课程内容</div>
+<div class="row"><div class="name"><code>courses</code></div><div class="note">课程 · 方向、难度、评分</div></div>
+<div class="row"><div class="name"><code>course_tags</code></div><div class="note">课程标签 · 内容推荐数据源</div></div>
+<div class="row"><div class="name"><code>chapters</code></div><div class="note">章节 · 课程一级结构</div></div>
+<div class="row"><div class="name"><code>knowledge_points</code></div><div class="note">知识点 · 自适应最小单元</div></div>
+<div class="row"><div class="name"><code>questions</code></div><div class="note">题库 · 难度 1-5、提示、题解</div></div>
+<div class="row"><div class="name"><code>question_knowledge_points</code></div><div class="note">题目-知识点关联</div></div>
+<div class="row"><div class="name"><code>test_cases</code></div><div class="note">判题测试用例 · 输入/期望输出</div></div>
+<div class="row"><div class="name"><code>lessons</code></div><div class="note">课时 · 理论/练习、关联题目</div></div>
+<div class="row"><div class="name"><code>lesson_knowledge_points</code></div><div class="note">课时-知识点关联</div></div></div>
+      <div><div class="grp">学习与判题</div>
+<div class="row"><div class="name"><code>course_enrollments</code></div><div class="note">选课与课程进度</div></div>
+<div class="row"><div class="name"><code>user_lesson_progress</code></div><div class="note">课时状态 · 锁定/解锁/完成</div></div>
+<div class="row"><div class="name"><code>learning_records</code></div><div class="note">学习记录 · 时间轴</div></div>
+<div class="row"><div class="name"><code>code_drafts</code></div><div class="note">代码草稿 · 云端保存</div></div>
+<div class="row"><div class="name"><code>submissions</code></div><div class="note">判题提交 · 结果/用例/耗时</div></div>
+<div class="grp">自适应学习</div>
+<div class="row"><div class="name"><code>mastery_scores</code></div><div class="note">知识点掌握度 · 0-1</div></div>
+<div class="row"><div class="name"><code>user_behaviors</code></div><div class="note">行为埋点 · 协同过滤数据源</div></div>
+<div class="row"><div class="name"><code>learning_recommendations</code></div><div class="note">个性化推荐 · 课程/题目/复习</div></div>
+<div class="row"><div class="name"><code>daily_questions</code></div><div class="note">每日一题 · 驱动打卡</div></div>
+<div class="grp">报告、激励与消息</div>
+<div class="row"><div class="name"><code>reports</code></div><div class="note">学习报告 · 周报/月报</div></div>
+<div class="row"><div class="name"><code>share_tokens</code></div><div class="note">报告分享令牌</div></div>
+<div class="row"><div class="name"><code>favorites</code></div><div class="note">收藏 · 课程/课时/题目</div></div>
+<div class="row"><div class="name"><code>achievements</code></div><div class="note">成就定义 · 9 项</div></div>
+<div class="row"><div class="name"><code>user_achievements</code></div><div class="note">用户成就 · 解锁时间</div></div>
+<div class="row"><div class="name"><code>messages</code></div><div class="note">消息中心 · 系统/成就/提醒</div></div>
+<div class="row"><div class="name"><code>user_daily_stats</code></div><div class="note">每日统计 · 排行榜/报告</div></div></div>
+    </div>
+    <div class="views"><b>视图（5）：</b>v_course_overview（课程概览）· v_user_learning_summary（学习概览）·
+      v_weekly_leaderboard（周排行榜）· v_user_question_status（题目状态/星级）· v_mastery_target（掌握度 → 目标难度）</div>
+  </div>
+</div>
+</div></body></html>
