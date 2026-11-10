@@ -685,9 +685,10 @@ JOIN knowledge_points kp ON kp.id = m.knowledge_point_id;
 -- ============================================================
 
 -- 7.1 用户与档案
+-- 演示账号：xiaolin@example.com / 13800001111，密码 abc12345；张姐账号同密码
 INSERT INTO users (id, phone, email, password_hash, nickname, role, last_login_at, created_at) VALUES
-  (1, '13800001111', 'xiaolin@example.com', '$2b$12$DEMO_HASH_XIAOLIN_1234567890', '小林同学', 'student', '2026-11-05 08:50:00', '2026-10-04 10:00:00'),
-  (2, '13900002222', 'zhangjie@example.com', '$2b$12$DEMO_HASH_ZHANGJIE_123456789', '张姐',    'student', '2026-11-05 09:10:00', '2026-10-20 14:30:00');
+  (1, '13800001111', 'xiaolin@example.com', '$2a$12$mjHWJIZSOUlY9MXvmseMpu.iZzMWXjjWeBK5ljNgrMt7MbnVGIOHm', '小林同学', 'student', '2026-11-05 08:50:00', '2026-10-04 10:00:00'),
+  (2, '13900002222', 'zhangjie@example.com', '$2a$12$mjHWJIZSOUlY9MXvmseMpu.iZzMWXjjWeBK5ljNgrMt7MbnVGIOHm', '张姐',    'student', '2026-11-05 09:10:00', '2026-10-20 14:30:00');
 
 INSERT INTO user_profiles
   (user_id, python_base, level, exp, streak_days, longest_streak_days, total_study_minutes,

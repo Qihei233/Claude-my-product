@@ -10,3 +10,7 @@ desktop.ini
 .env
 .env.*
 *.log
+
+# 本地工具配置
+.claude/
+.vscode/
