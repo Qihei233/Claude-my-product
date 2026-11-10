@@ -4,3 +4,6 @@ node_modules/
 coverage/
 .DS_Store
 Thumbs.db
+
+# 用户上传的头像
+uploads/

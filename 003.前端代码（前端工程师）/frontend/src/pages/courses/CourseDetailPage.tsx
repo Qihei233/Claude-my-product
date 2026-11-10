@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import {
   Bookmark,
@@ -18,8 +18,9 @@ import { FrogTip } from '@/components/ui/FrogTip'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Tag } from '@/components/ui/Tag'
 import { useAuth } from '@/app/AuthContext'
+import { flattenCourseLessons, useCatalog } from '@/app/CatalogContext'
 import { useToast } from '@/components/ui/ToastProvider'
-import { courseDuration, difficultyMeta, flattenLessons, getCourse } from '@/data/courses'
+import { courseDuration, difficultyMeta } from '@/data/courses'
 import {
   getCourseActionLabel,
   getCourseProgress,
@@ -32,6 +33,7 @@ import type { Lesson } from '@/types'
 
 export function CourseDetailPage() {
   const { courseId } = useParams()
+  const { getCourse, loading } = useCatalog()
   const course = getCourse(courseId)
   const { user, toggleFavoriteCourse, startCourse } = useAuth()
   const { showToast } = useToast()
@@ -42,6 +44,22 @@ export function CourseDetailPage() {
   const [openChapters, setOpenChapters] = useState<Set<string>>(
     () => new Set(initialLesson ? [initialLesson.chapterId] : []),
   )
+  const currentLesson = course ? getStartLesson(user, course) : undefined
+
+  useEffect(() => {
+    if (!currentLesson) return
+    setOpenChapters((current) =>
+      current.size ? current : new Set([currentLesson.chapterId]),
+    )
+  }, [currentLesson?.id])
+
+  if (loading && !course) {
+    return (
+      <div className="page-container">
+        <p>课程加载中…</p>
+      </div>
+    )
+  }
 
   if (!course) return <Navigate to="/404" replace />
 
@@ -49,7 +67,6 @@ export function CourseDetailPage() {
   const status = getCourseStatus(user, course)
   const progress = getCourseProgress(user, course)
   const isFavorite = user?.favoriteCourses.includes(course.id) ?? false
-  const currentLesson = getStartLesson(user, course)
   const currentChapter = course.chapters.find((chapter) => chapter.id === currentLesson?.chapterId)
   const currentLessonNumber = currentChapter
     ? currentChapter.lessons.findIndex((lesson) => lesson.id === currentLesson?.id) + 1
@@ -64,13 +81,13 @@ export function CourseDetailPage() {
     })
   }
 
-  const onStartLearning = () => {
+  const onStartLearning = async () => {
     if (!user) {
       navigate(`/login?returnUrl=${encodeURIComponent(`/course/${course.id}`)}`)
       return
     }
     const lesson = getStartLesson(user, course)
-    const targetLessonId = startCourse(course.id) ?? lesson?.id
+    const targetLessonId = (await startCourse(course.id)) ?? lesson?.id
     if (targetLessonId) navigate(`/learn/${course.id}/${targetLessonId}`)
   }
 
@@ -89,12 +106,12 @@ export function CourseDetailPage() {
     navigate(`/learn/${course.id}/${lesson.id}`)
   }
 
-  const onFavorite = () => {
+  const onFavorite = async () => {
     if (!user) {
       navigate(`/login?returnUrl=${encodeURIComponent(`/course/${course.id}`)}`)
       return
     }
-    const added = toggleFavoriteCourse(course.id)
+    const added = await toggleFavoriteCourse(course.id)
     showToast(added ? '已收藏课程，下次从这里继续找它～' : '已取消收藏')
   }
 
@@ -356,7 +373,7 @@ export function CourseDetailPage() {
           </section>
 
           <div className="course-outline-meta">
-            <span>共 {flattenLessons(course).length} 个可学习节点</span>
+            <span>共 {flattenCourseLessons(course).length} 个可学习节点</span>
             <span>·</span>
             <span>支持随时续学</span>
           </div>

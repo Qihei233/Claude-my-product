@@ -95,6 +95,9 @@ export interface User {
   id: string
   nickname: string
   initials: string
+  avatar?: string | null
+  phone?: string | null
+  email?: string | null
   bio: string
   joinedDays: number
   exp: number
@@ -108,10 +111,16 @@ export interface User {
   problemResults: Record<string, ProblemResult>
   favoriteCourses: string[]
   favoriteProblems: string[]
+  favoriteLessons?: string[]
   achievements: Record<string, string>
   readMessageIds: string[]
+  unreadMessageCount?: number
   checkedInToday: boolean
   preferences: UserPreferences
+  onboardingCompleted?: boolean
+  dailyGoalMinutes?: number
+  pythonBase?: 'zero' | 'basic'
+  level?: number
 }
 
 export interface Achievement {
@@ -120,6 +129,7 @@ export interface Achievement {
   condition: string
   description: string
   icon: string
+  unlockedAt?: string | null
 }
 
 export interface LearningRecord {
@@ -128,6 +138,7 @@ export interface LearningRecord {
   title: string
   subtitle: string
   time: string
+  date?: string
   group: 'today' | 'yesterday' | 'earlier'
   status: 'completed' | 'passed' | 'failed'
   detail: string

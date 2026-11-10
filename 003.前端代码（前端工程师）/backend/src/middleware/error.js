@@ -8,6 +8,14 @@ export function notFound(req, res, next) {
 export function errorHandler(err, req, res, next) {
   if (res.headersSent) return next(err);
 
+  if (err?.name === 'MulterError') {
+    const message =
+      err.code === 'LIMIT_FILE_SIZE'
+        ? '头像图片不能超过 2MB'
+        : '头像上传失败，请换一张图片试试';
+    return res.status(400).json({ code: 400, message });
+  }
+
   if (err instanceof ApiError) {
     return res.status(err.status).json({
       code: err.code ?? err.status,

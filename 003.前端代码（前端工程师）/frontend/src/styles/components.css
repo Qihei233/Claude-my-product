@@ -195,6 +195,26 @@
   color: #756751;
 }
 
+.avatar-with-image {
+  overflow: hidden;
+  background: #eef2f7;
+}
+
+.avatar-with-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.settings-profile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* ---------------- Progress ---------------- */
 .progress {
   position: relative;

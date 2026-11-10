@@ -17,14 +17,13 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeading } from '@/components/ui/PageHeading'
 import { Tag } from '@/components/ui/Tag'
 import { useAuth } from '@/app/AuthContext'
+import { useCatalog } from '@/app/CatalogContext'
 import { useToast } from '@/components/ui/ToastProvider'
 import { difficultyMeta } from '@/data/courses'
-import { problems } from '@/data/problems'
 import type { Difficulty, Problem, ProblemStatus } from '@/types'
 import { cn } from '@/utils/cn'
 
 const PAGE_SIZE = 8
-const knowledgeOptions = ['全部', '变量', '字符串', '条件', '循环', '列表', '字典', '函数', '文件']
 const difficultyOptions: { value: 'all' | Difficulty; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'beginner', label: '入门' },
@@ -65,9 +64,14 @@ function statusLabel(status: ProblemStatus) {
 
 export function PracticePage() {
   const { user } = useAuth()
+  const { problems, loading } = useCatalog()
   const { showToast } = useToast()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const knowledgeOptions = useMemo(
+    () => ['全部', ...Array.from(new Set(problems.flatMap((problem) => problem.tags)))],
+    [problems],
+  )
   const [knowledge, setKnowledge] = useState('全部')
   const [difficulty, setDifficulty] = useState<'all' | Difficulty>('all')
   const [status, setStatus] = useState<'all' | ProblemStatus>('all')
@@ -86,7 +90,7 @@ export function PracticePage() {
       }
       return true
     })
-  }, [difficulty, knowledge, search, status, user])
+  }, [difficulty, knowledge, problems, search, status, user])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -306,9 +310,13 @@ export function PracticePage() {
         ) : (
           <EmptyState
             image="/frog/surprised.png"
-            title="没有找到符合条件的题目"
-            description="换个知识点，或者把筛选条件放宽一点。"
-            action={<Button onClick={resetFilters}>重置筛选</Button>}
+            title={loading ? '题目加载中…' : '没有找到符合条件的题目'}
+            description={
+              loading
+                ? '奶蛙正在把题库搬过来，稍等一下。'
+                : '换个知识点，或者把筛选条件放宽一点。'
+            }
+            action={loading ? undefined : <Button onClick={resetFilters}>重置筛选</Button>}
           />
         )
       ) : filtered.length ? (
@@ -411,9 +419,13 @@ export function PracticePage() {
       ) : (
         <EmptyState
           image="/frog/surprised.png"
-          title="地图上暂时没有关卡"
-          description="调整一下筛选条件，就能看到更多练习。"
-          action={<Button onClick={resetFilters}>重置筛选</Button>}
+          title={loading ? '题库加载中…' : '地图上暂时没有关卡'}
+          description={
+            loading
+              ? '奶蛙正在把题库搬过来，稍等一下。'
+              : '调整一下筛选条件，就能看到更多练习。'
+          }
+          action={loading ? undefined : <Button onClick={resetFilters}>重置筛选</Button>}
         />
       )}
     </div>

@@ -33,6 +33,12 @@ if not exist "%APP%\frontend\package.json" (
   exit /b 1
 )
 
+REM ---------- locate admin system (optional) ----------
+set "ADMIN="
+for /d %%D in ("%ROOT%006.*") do set "ADMIN=%%~fD"
+if defined ADMIN if not exist "%ADMIN%\backend\package.json" set "ADMIN="
+if defined ADMIN if not exist "%ADMIN%\frontend\package.json" set "ADMIN="
+
 "%SYS%\where.exe" npm >nul 2>&1
 if errorlevel 1 (
   echo [ERROR] Node.js / npm not found in PATH. Please install Node.js 18+.
@@ -55,14 +61,14 @@ echo.
 REM ---------- 1. Docker Desktop ----------
 "%SYS%\tasklist.exe" /fi "IMAGENAME eq Docker Desktop.exe" 2>nul | "%SYS%\find.exe" /i "Docker Desktop.exe" >nul
 if errorlevel 1 (
-  echo [1/4] Starting Docker Desktop...
+  echo [1/6] Starting Docker Desktop...
   if exist "%DOCKER_EXE%" (
     start "" "%DOCKER_EXE%"
   ) else (
     echo       [WARN] Docker Desktop not found. Please start it manually.
   )
 ) else (
-  echo [1/4] Docker Desktop is already running.
+  echo [1/6] Docker Desktop is already running.
 )
 
 echo       Waiting for the Docker engine...
@@ -106,23 +112,57 @@ echo       [WARN] MySQL is still not listening on port 3307.
 REM ---------- 2. Backend ----------
 "%SYS%\netstat.exe" -ano | "%SYS%\find.exe" ":3001" | "%SYS%\find.exe" "LISTENING" >nul
 if errorlevel 1 (
-  echo [2/4] Starting backend on http://localhost:3001 ...
+  echo [2/6] Starting backend on http://localhost:3001 ...
   start "Naiwa Backend" /D "%APP%\backend" cmd /k "chcp 65001 >nul && npm run dev"
 ) else (
-  echo [2/4] Backend is already running on port 3001.
+  echo [2/6] Backend is already running on port 3001.
 )
 
 REM ---------- 3. Frontend ----------
 "%SYS%\netstat.exe" -ano | "%SYS%\find.exe" ":5173" | "%SYS%\find.exe" "LISTENING" >nul
 if errorlevel 1 (
-  echo [3/4] Starting frontend on http://localhost:5173 ...
+  echo [3/6] Starting frontend on http://localhost:5173 ...
   start "Naiwa Frontend" /D "%APP%\frontend" cmd /k "chcp 65001 >nul && npm run dev"
 ) else (
-  echo [3/4] Frontend is already running on port 5173.
+  echo [3/6] Frontend is already running on port 5173.
 )
 
-REM ---------- 4. Open browser ----------
-echo [4/4] Waiting for the web page...
+REM ---------- 4/5. Admin system ----------
+if not defined ADMIN (
+  echo [4/6] Admin system folder not found, skipped.
+  echo [5/6] Admin system folder not found, skipped.
+  goto open_browser
+)
+
+if not exist "%ADMIN%\backend\node_modules" (
+  echo [4/6] [WARN] Admin backend dependencies missing.
+  echo         Run: cd /d "%ADMIN%\backend" ^&^& npm install
+) else (
+  "%SYS%\netstat.exe" -ano | "%SYS%\find.exe" ":3101" | "%SYS%\find.exe" "LISTENING" >nul
+  if errorlevel 1 (
+    echo [4/6] Starting admin backend on http://localhost:3101 ...
+    start "Naiwa Admin Backend" /D "%ADMIN%\backend" cmd /k "chcp 65001 >nul && npm run dev"
+  ) else (
+    echo [4/6] Admin backend is already running on port 3101.
+  )
+)
+
+if not exist "%ADMIN%\frontend\node_modules" (
+  echo [5/6] [WARN] Admin frontend dependencies missing.
+  echo         Run: cd /d "%ADMIN%\frontend" ^&^& npm install
+) else (
+  "%SYS%\netstat.exe" -ano | "%SYS%\find.exe" ":5183" | "%SYS%\find.exe" "LISTENING" >nul
+  if errorlevel 1 (
+    echo [5/6] Starting admin frontend on http://localhost:5183 ...
+    start "Naiwa Admin Frontend" /D "%ADMIN%\frontend" cmd /k "chcp 65001 >nul && npm run dev"
+  ) else (
+    echo [5/6] Admin frontend is already running on port 5183.
+  )
+)
+
+:open_browser
+REM ---------- 6. Open browser ----------
+echo [6/6] Waiting for the web page...
 if not exist "%SYS%\curl.exe" goto web_ready
 set "WEB_TRIES=0"
 :wait_web
@@ -135,10 +175,11 @@ goto wait_web
 
 :web_ready
 if not "%NAIWA_NO_OPEN%"=="1" start "" "http://localhost:5173"
+if not "%NAIWA_NO_OPEN%"=="1" if defined ADMIN start "" "http://localhost:5183"
 
 echo.
-echo Done. The site should be open at:
-echo     http://localhost:5173
+echo Done. Student site:  http://localhost:5173
+if defined ADMIN echo       Admin system:  http://localhost:5183
 echo.
 echo Keep the Backend and Frontend windows open.
 echo Close them to stop the servers.

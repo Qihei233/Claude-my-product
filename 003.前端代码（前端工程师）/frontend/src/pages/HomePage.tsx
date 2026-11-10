@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   ArrowRight,
   BookOpen,
@@ -8,12 +9,14 @@ import {
   Sun,
 } from 'lucide-react'
 import { useAuth } from '@/app/AuthContext'
+import { flattenCourseLessons, useCatalog } from '@/app/CatalogContext'
 import { Button } from '@/components/ui/Button'
 import { CourseCard } from '@/components/course/CourseCard'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Tag } from '@/components/ui/Tag'
-import { courses, getCourse, getLesson } from '@/data/courses'
+import { fetchDailyQuestion, type ProblemDetailData } from '@/api/app'
+import { difficultyMeta } from '@/data/courses'
 import { getLevelInfo, levelTable } from '@/data/mockData'
 import { getCourseProgress, getStartLesson } from '@/utils/course'
 
@@ -27,17 +30,21 @@ const learningRoute = [
 
 function ContinueCard() {
   const { user } = useAuth()
-  const course = getCourse('py-basic-01')
+  const { courses, getCourse } = useCatalog()
+  const course = getCourse('py-basic-01') ?? courses[0]
   if (!course) return null
+  const lessons = flattenCourseLessons(course)
   const progress = getCourseProgress(user, course)
   const lesson = user
-    ? getLesson(course, user.courseProgress[course.id]?.currentLessonId) ??
-      getStartLesson(user, course)
+    ? lessons.find(
+        (item) => item.id === user.courseProgress[course.id]?.currentLessonId,
+      ) ?? getStartLesson(user, course)
     : getStartLesson(user, course)
   const chapter = course.chapters.find((item) => item.id === lesson?.chapterId)
   const chapterIndex = course.chapters.findIndex((item) => item.id === lesson?.chapterId) + 1
   const hasProgress = progress.completedCount > 0
-  const targetLesson = lesson?.id ?? 'py-basic-01-c1-l1'
+  const targetLesson = lesson?.id ?? lessons[0]?.id
+  if (!targetLesson) return null
 
   return (
     <article className="continue-card">
@@ -75,6 +82,24 @@ function ContinueCard() {
 
 function DailyCard() {
   const { user } = useAuth()
+  const [problem, setProblem] = useState<ProblemDetailData | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchDailyQuestion()
+      .then((item) => {
+        if (!cancelled) setProblem(item)
+      })
+      .catch(() => {
+        if (!cancelled) setProblem(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const difficulty = problem ? difficultyMeta[problem.difficulty] : null
+
   return (
     <article className="daily-card">
       <div className="daily-card-head">
@@ -83,13 +108,20 @@ function DailyCard() {
           <Sun size={21} />
         </span>
       </div>
-      <h3>#002 计算平均分</h3>
-      <p>用列表和函数，把一组分数变成一个答案。</p>
+      <h3>
+        {problem ? `${problem.number} ${problem.title}` : '每日一题加载中…'}
+      </h3>
+      <p>{problem?.description ?? '奶蛙正在挑选今天的小练习。'}</p>
       <div className="daily-card-meta">
-        <Tag tone="yellow">入门</Tag>
+        <Tag tone="yellow">{difficulty?.label ?? '练习'}</Tag>
         <span>约 5 分钟</span>
       </div>
-      <Button to="/practice/p002" variant="secondary" fullWidth className="daily-button">
+      <Button
+        to={problem ? `/practice/${problem.id}` : '/practice'}
+        variant="secondary"
+        fullWidth
+        className="daily-button"
+      >
         {user?.checkedInToday ? '回顾今日一题' : '去挑战'}
       </Button>
     </article>
@@ -98,12 +130,13 @@ function DailyCard() {
 
 function LoggedInHome() {
   const { user } = useAuth()
+  const { courses } = useCatalog()
   const level = user ? getLevelInfo(user.exp) : null
   if (!user || !level) return null
   const nextLevel = levelTable.find((item) => item.level === level.level + 1)
   const featuredCourses = courses.slice(0, 4)
-  const weeklyHours = user.hoursLearned > 10 ? '3.5' : user.hoursLearned.toFixed(1)
-  const weeklyCompleted = Math.min(12, user.completedLessonCount)
+  const weeklyHours = user.hoursLearned.toFixed(1)
+  const weeklyCompleted = user.completedLessonCount
 
   return (
     <div className="home-page page-container">
@@ -131,13 +164,13 @@ function LoggedInHome() {
             </strong>
           </div>
           <div className="home-stat">
-            <span>本周学习</span>
+            <span>累计学习</span>
             <strong>
               {weeklyHours} <small>小时</small>
             </strong>
           </div>
           <div className="home-stat">
-            <span>本周完成</span>
+            <span>完成课时</span>
             <strong>
               {weeklyCompleted} <small>课时</small>
             </strong>
@@ -193,6 +226,7 @@ function LoggedInHome() {
 }
 
 function GuestHome() {
+  const { courses } = useCatalog()
   const featuredCourses = courses.slice(0, 4)
   return (
     <div className="home-page home-page-guest page-container">

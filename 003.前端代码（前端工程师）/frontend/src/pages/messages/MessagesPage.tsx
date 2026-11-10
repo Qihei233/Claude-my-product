@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BookOpen,
@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeading } from '@/components/ui/PageHeading'
 import { useAuth } from '@/app/AuthContext'
 import { useToast } from '@/components/ui/ToastProvider'
-import { messages } from '@/data/mockData'
+import { fetchMessages } from '@/api/app'
 import type { Message } from '@/types'
 import { cn } from '@/utils/cn'
 
@@ -39,9 +39,28 @@ function typeIcon(type: Message['type']) {
 }
 
 export function MessagesPage() {
-  const { user, markMessageRead, markAllMessagesRead } = useAuth()
+  const { user, markMessageRead, markAllMessagesRead, refreshState } = useAuth()
   const { showToast } = useToast()
   const [filter, setFilter] = useState<MessageFilter>('all')
+  const [messages, setMessages] = useState<Message[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchMessages()
+      .then((list) => {
+        if (!cancelled) setMessages(list)
+      })
+      .catch(() => {
+        if (!cancelled) setMessages([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
 
   if (!user) return null
 
@@ -59,8 +78,9 @@ export function MessagesPage() {
         (value === 'all' || message.type === value),
     ).length
 
-  const onMarkAll = () => {
-    markAllMessagesRead()
+  const onMarkAll = async () => {
+    await markAllMessagesRead()
+    await refreshState()
     showToast('所有消息都标为已读啦', 'success')
   }
 
@@ -109,7 +129,9 @@ export function MessagesPage() {
                   <Link
                     to={message.href ?? '/messages'}
                     className={cn('message-row', unread && 'is-unread')}
-                    onClick={() => markMessageRead(message.id)}
+                    onClick={() => {
+                      void markMessageRead(message.id)
+                    }}
                   >
                     <span className={cn('message-icon', `is-${message.type}`)}>
                       <Icon size={20} />
@@ -134,8 +156,12 @@ export function MessagesPage() {
         ) : (
           <EmptyState
             image="/frog/lounging.png"
-            title="这里暂时没有消息"
-            description="换个分类看看，或者去学一点新东西吧。"
+            title={loading ? '消息加载中…' : '这里暂时没有消息'}
+            description={
+              loading
+                ? '稍等一下，奶蛙正在把消息整理好。'
+                : '换个分类看看，或者去学一点新东西吧。'
+            }
             compact
           />
         )}

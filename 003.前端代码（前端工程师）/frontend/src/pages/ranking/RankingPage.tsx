@@ -1,10 +1,12 @@
+import { useEffect, useState } from 'react'
 import { Crown, Trophy } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { InfoBanner } from '@/components/ui/InfoBanner'
 import { PageHeading } from '@/components/ui/PageHeading'
 import { useAuth } from '@/app/AuthContext'
-import { currentUserRank, getLevelInfo, leaderboard } from '@/data/mockData'
+import { fetchRanking, type RankingData } from '@/api/app'
+import { getLevelInfo } from '@/data/mockData'
 import { cn } from '@/utils/cn'
 
 function weekRange() {
@@ -20,10 +22,37 @@ function weekRange() {
 
 export function RankingPage() {
   const { user } = useAuth()
-  const userLevel = user ? getLevelInfo(user.exp).level : currentUserRank.level
-  const myWeeklyHours = user
-    ? Number(Math.min(user.hoursLearned, 3.5).toFixed(1))
-    : currentUserRank.hours
+  const [data, setData] = useState<RankingData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetchRanking()
+      .then((result) => {
+        if (!cancelled) {
+          setData(result)
+          setError(null)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '排行榜加载失败')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
+
+  const leaderboard = data?.leaderboard ?? []
+  const currentUserRank = data?.currentUserRank ?? null
+  const userLevel = user ? Number(user.level) || getLevelInfo(user.exp).level : 1
+  const myWeeklyHours = currentUserRank?.hours ?? 0
   const podium = leaderboard.slice(0, 3)
   const second = podium[1]
   const first = podium[0]
@@ -38,8 +67,16 @@ export function RankingPage() {
       />
 
       <InfoBanner className="ranking-note">
-        暂按周学习时长展示 · 统计口径待确认，本榜单非最终产品口径。
+        按本周学习时长展示 · 数据来自本周学习统计。
       </InfoBanner>
+
+      {error ? (
+        <InfoBanner className="ranking-note">{error}</InfoBanner>
+      ) : null}
+
+      {loading && !leaderboard.length ? (
+        <p className="ranking-table-note">排行榜加载中…</p>
+      ) : null}
 
       <section className="podium" aria-label="本周排行榜前三名">
         {[second, first, third].map((entry, index) => {
@@ -99,7 +136,7 @@ export function RankingPage() {
                   <td className="ranking-hours">{entry.hours.toFixed(1)} 小时</td>
                 </tr>
               ))}
-              {user && (
+              {user && currentUserRank && (
                 <tr className="is-me">
                   <td>
                     <span className="rank-number">{currentUserRank.rank}</span>

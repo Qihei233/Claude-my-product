@@ -1,18 +1,19 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BookOpen, Code2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useAuth } from '@/app/AuthContext'
-import { learningRecords } from '@/data/mockData'
+import { fetchRecords } from '@/api/app'
+import type { LearningRecord } from '@/types'
 import { cn } from '@/utils/cn'
 
 type TypeFilter = 'all' | 'lesson' | 'problem'
 type RangeFilter = '7' | '30' | 'all'
 
-const groupMeta = {
-  today: { title: '今天', date: '10 月 22 日' },
-  yesterday: { title: '昨天', date: '10 月 21 日' },
-  earlier: { title: '更早', date: '10 月 20 日' },
+const groupTitles = {
+  today: '今天',
+  yesterday: '昨天',
+  earlier: '更早',
 } as const
 
 const typeOptions: { value: TypeFilter; label: string }[] = [
@@ -27,29 +28,59 @@ const rangeOptions: { value: RangeFilter; label: string }[] = [
   { value: 'all', label: '全部' },
 ]
 
+function dateLabel(record: LearningRecord | undefined) {
+  if (!record?.date) return ''
+  const date = new Date(record.date)
+  return `${date.getMonth() + 1} 月 ${date.getDate()} 日`
+}
+
 export function RecordsPage() {
   const { user } = useAuth()
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [rangeFilter, setRangeFilter] = useState<RangeFilter>('7')
+  const [records, setRecords] = useState<LearningRecord[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetchRecords()
+      .then((list) => {
+        if (!cancelled) setRecords(list)
+      })
+      .catch(() => {
+        if (!cancelled) setRecords([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
 
   const filtered = useMemo(() => {
-    const rangeDays = rangeFilter === 'all' ? Number.POSITIVE_INFINITY : Number(rangeFilter)
-    return learningRecords.filter((record) => {
+    const now = Date.now()
+    return records.filter((record) => {
       if (typeFilter !== 'all' && record.type !== typeFilter) return false
-      // The seeded records all belong to the current week. Keeping the range
-      // check here means the control keeps working when real history is added.
-      return rangeDays >= 7
+      if (rangeFilter === 'all' || !record.date) return true
+      const days = Number(rangeFilter)
+      return now - new Date(record.date).getTime() <= days * 86400000
     })
-  }, [rangeFilter, typeFilter])
+  }, [records, rangeFilter, typeFilter])
 
   if (!user) return null
 
-  const groups = (Object.keys(groupMeta) as (keyof typeof groupMeta)[])
-    .map((key) => ({
-      key,
-      ...groupMeta[key],
-      records: filtered.filter((record) => record.group === key),
-    }))
+  const groups = (Object.keys(groupTitles) as (keyof typeof groupTitles)[])
+    .map((key) => {
+      const items = filtered.filter((record) => record.group === key)
+      return {
+        key,
+        title: groupTitles[key],
+        date: dateLabel(items[0]),
+        records: items,
+      }
+    })
     .filter((group) => group.records.length > 0)
 
   return (
@@ -134,8 +165,12 @@ export function RecordsPage() {
       ) : (
         <EmptyState
           image="/frog/lying-looking-up.png"
-          title="这段时间还没有学习记录"
-          description="换一个筛选条件，或者去写下一行代码吧。"
+          title={loading ? '学习记录加载中…' : '这段时间还没有学习记录'}
+          description={
+            loading
+              ? '奶蛙正在把你的学习足迹整理出来。'
+              : '换一个筛选条件，或者去写下一行代码吧。'
+          }
           action={
             <Button
               onClick={() => {

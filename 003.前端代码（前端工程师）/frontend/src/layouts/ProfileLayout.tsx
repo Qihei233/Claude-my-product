@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAuth } from '@/app/AuthContext'
+import { assetUrl } from '@/api/app'
 import { getLevelInfo } from '@/data/mockData'
 import { cn } from '@/utils/cn'
 
@@ -28,7 +29,7 @@ export function ProfileLayout() {
     <div className="page-container profile-container">
       <aside className="profile-sidebar">
         <div className="profile-sidebar-user">
-          <Avatar initial={user.initials} size="lg" />
+          <Avatar initial={user.initials} image={assetUrl(user.avatar)} size="lg" />
           <div>
             <strong>{user.nickname}</strong>
             <span>

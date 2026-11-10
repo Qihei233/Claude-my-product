@@ -21,11 +21,11 @@ import { CodeEditor } from '@/components/practice/CodeEditor'
 import { Button } from '@/components/ui/Button'
 import { Tag } from '@/components/ui/Tag'
 import { useAuth } from '@/app/AuthContext'
+import { useCatalog } from '@/app/CatalogContext'
 import { useToast } from '@/components/ui/ToastProvider'
 import { difficultyMeta } from '@/data/courses'
-import { getProblem, getProblemIndex, problems } from '@/data/problems'
+import { runProblemApi } from '@/api/app'
 import type { CodeRunResult, Problem } from '@/types'
-import { executePython, isProblemSolution } from '@/utils/pythonSimulator'
 import { readStorage, STORAGE_KEYS, writeStorage } from '@/utils/storage'
 import { cn } from '@/utils/cn'
 
@@ -33,9 +33,10 @@ type DetailTab = 'description' | 'solution' | 'records'
 
 function ProblemDetailContent({ problem }: { problem: Problem }) {
   const { user, recordProblemResult, toggleFavoriteProblem } = useAuth()
+  const { problems } = useCatalog()
   const { showToast } = useToast()
   const navigate = useNavigate()
-  const problemIndex = getProblemIndex(problem.id)
+  const problemIndex = problems.findIndex((item) => item.id === problem.id)
   const nextProblem = problems[problemIndex + 1]
   const previousProblem = problems[problemIndex - 1]
   const previousResult = user?.problemResults[problem.id]
@@ -71,54 +72,79 @@ function ProblemDetailContent({ problem }: { problem: Problem }) {
     if (running || submitting) return
     setRunning(true)
     setResult(null)
-    window.setTimeout(() => {
-      setResult(executePython(code, problem.sampleOutput))
-      setRunning(false)
-    }, 320)
+    runProblemApi(problem.id, code)
+      .then((run) => {
+        const ok = run.status === 'success'
+        setResult({
+          status: ok ? 'success' : 'error',
+          output: run.output || run.error || '程序没有输出',
+          detail:
+            run.expected !== null && run.expected !== undefined
+              ? `期望输出：${run.expected}`
+              : undefined,
+          friendlyError:
+            run.friendlyError ||
+            (ok && !run.passed ? '输出和期望不一致，再检查一下。' : undefined),
+          duration: `${(run.durationMs / 1000).toFixed(2)}s`,
+        })
+      })
+      .catch((err) => {
+        setResult({
+          status: 'error',
+          output: err instanceof Error ? err.message : '运行失败，请稍后重试',
+        })
+      })
+      .finally(() => setRunning(false))
   }
 
   const onSubmit = () => {
     if (running || submitting || requireLogin()) return
     setSubmitting(true)
     setResult(null)
-    window.setTimeout(() => {
-      const runResult = executePython(code, problem.sampleOutput)
-      if (runResult.status !== 'success') {
-        recordProblemResult(problem.id, false, usedHint)
-        setResult(runResult)
+    window.setTimeout(async () => {
+      try {
+        const outcome = await recordProblemResult(problem.id, code, usedHint)
+        if (outcome.accepted) {
+          setPassedNow(true)
+          setResult({
+            status: 'success',
+            output: `判题通过！\n${outcome.output ?? ''}`.trim(),
+            duration: outcome.durationMs
+              ? `${(outcome.durationMs / 1000).toFixed(2)}s`
+              : undefined,
+          })
+          showToast(
+            outcome.firstPass
+              ? `判题通过，获得 +${outcome.expGained} EXP 和 ${outcome.stars} 颗星`
+              : `判题通过，保持练习的手感`,
+            'success',
+          )
+        } else {
+          const lines = [
+            `判题未通过（${outcome.passedCases ?? 0}/${outcome.totalCases ?? 1} 个用例通过）`,
+          ]
+          if (outcome.output) lines.push(`你的输出：\n${outcome.output}`)
+          if (outcome.expected !== null && outcome.expected !== undefined) {
+            lines.push(`期望输出：\n${outcome.expected}`)
+          }
+          if (outcome.error) lines.push(outcome.error)
+          setResult({
+            status: 'error',
+            output: lines.join('\n\n'),
+            friendlyError:
+              outcome.friendlyError ||
+              '大部分思路已经写对啦。对照期望输出检查边界条件，或解锁提示再试一次。',
+          })
+          showToast('判题未通过，再试一次吧', 'error')
+        }
+      } catch (err) {
+        showToast(
+          err instanceof Error ? err.message : '提交失败，请稍后重试',
+          'error',
+        )
+      } finally {
         setSubmitting(false)
-        showToast('代码还没有运行成功，看看控制台的提示', 'error')
-        return
       }
-
-      if (!isProblemSolution(problem.id, code)) {
-        recordProblemResult(problem.id, false, usedHint)
-        setResult({
-          status: 'error',
-          output: `判题未通过：你的程序输出是\n${runResult.output}`,
-          detail: `期望输出：${problem.sampleOutput}`,
-          friendlyError:
-            '大部分思路已经写对啦。对照题目要求检查边界条件，或解锁提示再试一次。',
-        })
-        setSubmitting(false)
-        showToast('判题未通过，再试一次吧', 'error')
-        return
-      }
-
-      const outcome = recordProblemResult(problem.id, true, usedHint)
-      setPassedNow(true)
-      setResult({
-        status: 'success',
-        output: `判题通过！\n${runResult.output}`,
-        duration: runResult.duration,
-      })
-      setSubmitting(false)
-      showToast(
-        outcome.firstPass
-          ? `判题通过，获得 +${outcome.expGained} EXP 和 ${outcome.stars} 颗星`
-          : `判题通过，保持练习的手感`,
-        'success',
-      )
     }, 420)
   }
 
@@ -135,9 +161,9 @@ function ProblemDetailContent({ problem }: { problem: Problem }) {
     setVisibleHints((count) => count + 1)
   }
 
-  const onFavorite = () => {
+  const onFavorite = async () => {
     if (requireLogin()) return
-    const added = toggleFavoriteProblem(problem.id)
+    const added = await toggleFavoriteProblem(problem.id)
     showToast(added ? '已收藏题目，之后可以从「我的收藏」找到它' : '已取消收藏')
   }
 
@@ -496,7 +522,15 @@ function ProblemDetailContent({ problem }: { problem: Problem }) {
 
 export function ProblemDetailPage() {
   const { problemId } = useParams()
+  const { getProblem, loading } = useCatalog()
   const problem = getProblem(problemId)
+  if (loading && !problem) {
+    return (
+      <div className="page-container">
+        <p>题目加载中…</p>
+      </div>
+    )
+  }
   if (!problem) return <Navigate to="/404" replace />
   return <ProblemDetailContent key={problem.id} problem={problem} />
 }

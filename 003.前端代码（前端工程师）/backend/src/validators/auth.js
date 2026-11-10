@@ -77,3 +77,12 @@ export const loginCodeSchema = z
     code: codeSchema,
   })
   .superRefine(checkAccount);
+
+export const resetPasswordSchema = z
+  .object({
+    accountType: accountTypeSchema,
+    account: z.string().trim().min(1, '请输入手机号或邮箱'),
+    code: codeSchema,
+    password: passwordSchema,
+  })
+  .superRefine(checkAccount);

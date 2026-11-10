@@ -11,6 +11,11 @@ export const pool = mysql.createPool({
   decimalNumbers: true,
 });
 
+// 让 MySQL 的 NOW() / CURDATE() 也使用东八区，避免与本地时间相差 8 小时。
+pool.on('connection', (connection) => {
+  connection.query("SET time_zone = '+08:00'");
+});
+
 /** 查询多行，返回 rows */
 export async function query(sql, params = []) {
   const [rows] = await pool.execute(sql, params);

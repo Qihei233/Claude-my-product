@@ -12,11 +12,12 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useAuth } from '@/app/AuthContext'
+import { useCatalog } from '@/app/CatalogContext'
 import { useToast } from '@/components/ui/ToastProvider'
 import { Button } from '@/components/ui/Button'
 import { goalOptions } from '@/data/mockData'
+import { courseDuration } from '@/data/courses'
 import { getStartLesson } from '@/utils/course'
-import { getCourse } from '@/data/courses'
 import type { GoalKey } from '@/types'
 import { cn } from '@/utils/cn'
 
@@ -28,12 +29,16 @@ const goalIcons = {
 }
 
 export function OnboardingPage() {
-  const { user, updateProfile, startCourse } = useAuth()
+  const { user, completeOnboarding, startCourse } = useAuth()
+  const { getCourse, courses } = useCatalog()
   const { showToast } = useToast()
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
-  const [foundation, setFoundation] = useState<'zero' | 'some'>('zero')
+  const [foundation, setFoundation] = useState<'zero' | 'some'>(
+    user?.pythonBase === 'basic' ? 'some' : 'zero',
+  )
   const [goals, setGoals] = useState<GoalKey[]>(user?.goals ?? [])
+  const course = getCourse('py-basic-01') ?? courses[0]
 
   if (!user) return null
 
@@ -54,23 +59,40 @@ export function OnboardingPage() {
     setGoals([...withoutInterest, goal])
   }
 
-  const finish = () => {
-    updateProfile({
-      nickname: user.nickname,
-      bio: user.bio,
-      goals,
-    })
-    setStep(3)
+  const finish = async () => {
+    try {
+      await completeOnboarding({
+        pythonBase: foundation === 'some' ? 'basic' : 'zero',
+        goals,
+        dailyGoalMinutes: user.dailyGoalMinutes ?? 30,
+      })
+      setStep(3)
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : '保存失败，请稍后重试',
+        'error',
+      )
+    }
   }
 
-  const beginFirstLesson = () => {
-    const course = getCourse('py-basic-01')
-    if (!course) return
-    const lessonId = startCourse(course.id) ?? getStartLesson(user, course)?.id
-    if (lessonId) {
-      navigate(`/learn/${course.id}/${lessonId}`)
-    } else {
-      navigate(`/course/${course.id}`)
+  const beginFirstLesson = async () => {
+    if (!course) {
+      navigate('/courses')
+      return
+    }
+    try {
+      const lessonId =
+        (await startCourse(course.id)) ?? getStartLesson(user, course)?.id
+      if (lessonId) {
+        navigate(`/learn/${course.id}/${lessonId}`)
+      } else {
+        navigate(`/course/${course.id}`)
+      }
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : '开始学习失败，请稍后重试',
+        'error',
+      )
     }
   }
 
@@ -232,15 +254,18 @@ export function OnboardingPage() {
               <header className="onboarding-question">
                 <h1>你的 Python 起步路线</h1>
                 <p>
-                  完全零基础 · 目标：
+                  {foundation === 'zero' ? '完全零基础' : '学过一点'} · 目标：
                   {goals.map((goal) => goalOptions.find((item) => item.value === goal)?.label).join('、')}
                 </p>
               </header>
 
               <div className="route-card">
                 <span className="route-badge">为你推荐 · 从这里开始</span>
-                <h2>Python 零基础入门</h2>
-                <p>32 课时 · 约 8 小时 · 学会变量、条件循环与函数，为后续实践打好基础。</p>
+                <h2>{course?.title ?? 'Python 零基础入门'}</h2>
+                <p>
+                  {course?.lessonCount ?? 0} 课时 · 约{' '}
+                  {courseDuration(course?.durationMinutes ?? 0)} · 学会变量、条件循环与函数，为后续实践打好基础。
+                </p>
                 <ol className="route-steps">
                   <li className="is-active">
                     <span>1</span>

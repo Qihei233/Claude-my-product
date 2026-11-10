@@ -34,6 +34,10 @@ export const loginByCode = asyncHandler(async (req, res) => {
   return ok(res, data);
 });
 
+export const resetPassword = asyncHandler(async (req, res) => {
+  return ok(res, await authService.resetPassword(req.body));
+});
+
 export const me = asyncHandler(async (req, res) => {
   const data = await authService.getMe(req.user.id);
   return ok(res, data);

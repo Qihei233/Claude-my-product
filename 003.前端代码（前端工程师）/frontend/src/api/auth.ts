@@ -56,6 +56,13 @@ export interface LoginCodeRequest {
   code: string
 }
 
+export interface ResetPasswordRequest {
+  accountType: 'phone' | 'email'
+  account: string
+  code: string
+  password: string
+}
+
 interface ApiEnvelope<T> {
   code: number
   message: string
@@ -77,13 +84,17 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
   options: RequestInit = {},
   token?: string | null,
 ): Promise<T> {
   const headers = new Headers(options.headers)
-  if (options.body && !headers.has('Content-Type')) {
+  if (
+    options.body &&
+    !(options.body instanceof FormData) &&
+    !headers.has('Content-Type')
+  ) {
     headers.set('Content-Type', 'application/json')
   }
 
@@ -151,6 +162,14 @@ export function login(input: LoginRequest) {
 export function loginByCode(input: LoginCodeRequest) {
   return request<AuthResult>(
     '/api/auth/login-code',
+    { method: 'POST', body: JSON.stringify(input) },
+    null,
+  )
+}
+
+export function resetPassword(input: ResetPasswordRequest) {
+  return request<{ ok: boolean }>(
+    '/api/auth/reset-password',
     { method: 'POST', body: JSON.stringify(input) },
     null,
   )

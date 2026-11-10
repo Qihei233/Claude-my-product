@@ -1,9 +1,13 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { config } from './config/env.js';
 import authRoutes from './routes/auth.routes.js';
+import contentRoutes from './routes/content.routes.js';
+import stateRoutes from './routes/state.routes.js';
 import { errorHandler, notFound } from './middleware/error.js';
 
 export function createApp() {
@@ -41,7 +45,15 @@ export function createApp() {
     });
   });
 
+  const uploadDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../uploads',
+  );
+  app.use('/uploads', express.static(uploadDir, { maxAge: '7d' }));
+
   app.use('/api/auth', authRoutes);
+  app.use('/api/content', contentRoutes);
+  app.use('/api/me', stateRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

@@ -7,6 +7,7 @@ import {
   loginCodeSchema,
   loginSchema,
   registerSchema,
+  resetPasswordSchema,
   sendCodeSchema,
 } from '../validators/auth.js';
 
@@ -27,6 +28,12 @@ router.post('/send-code', authLimiter, validate(sendCodeSchema), controller.send
 router.post('/register', authLimiter, validate(registerSchema), controller.register);
 router.post('/login', authLimiter, validate(loginSchema), controller.login);
 router.post('/login-code', authLimiter, validate(loginCodeSchema), controller.loginByCode);
+router.post(
+  '/reset-password',
+  authLimiter,
+  validate(resetPasswordSchema),
+  controller.resetPassword,
+);
 router.get('/me', requireAuth, controller.me);
 router.post('/logout', requireAuth, controller.logout);
 

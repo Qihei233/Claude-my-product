@@ -6,16 +6,14 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Tag } from '@/components/ui/Tag'
 import { useAuth } from '@/app/AuthContext'
+import { useCatalog } from '@/app/CatalogContext'
 import { useToast } from '@/components/ui/ToastProvider'
-import { courseDuration, difficultyMeta, getCourse } from '@/data/courses'
-import { getProblem } from '@/data/problems'
+import { courseDuration, difficultyMeta } from '@/data/courses'
 import type { Course, Problem } from '@/types'
 import { getCourseProgress, getCourseStatus } from '@/utils/course'
 import { cn } from '@/utils/cn'
 
 type FavoriteTab = 'courses' | 'problems'
-
-const favoriteDates = ['今天', '昨天', '10.20', '10.19', '10.18']
 
 function courseStatusLabel(status: ReturnType<typeof getCourseStatus>) {
   if (status === 'learning') return '学习中'
@@ -32,6 +30,7 @@ function problemState(problem: Problem, user: ReturnType<typeof useAuth>['user']
 
 export function FavoritesPage() {
   const { user, toggleFavoriteCourse, toggleFavoriteProblem } = useAuth()
+  const { getCourse, getProblem } = useCatalog()
   const { showToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const tab: FavoriteTab = searchParams.get('tab') === 'problems' ? 'problems' : 'courses'
@@ -53,12 +52,12 @@ export function FavoritesPage() {
   }
 
   const removeCourse = (course: Course) => {
-    toggleFavoriteCourse(course.id)
+    void toggleFavoriteCourse(course.id)
     showToast(`已取消收藏「${course.title}」`, 'info')
   }
 
   const removeProblem = (problem: Problem) => {
-    toggleFavoriteProblem(problem.id)
+    void toggleFavoriteProblem(problem.id)
     showToast(`已取消收藏「${problem.title}」`, 'info')
   }
 
@@ -100,7 +99,7 @@ export function FavoritesPage() {
               </span>
             </div>
             <div className="favorite-course-grid">
-              {favoriteCourses.map((course, index) => {
+              {favoriteCourses.map((course) => {
                 const progress = getCourseProgress(user, course)
                 const status = getCourseStatus(user, course)
                 const difficulty = difficultyMeta[course.difficulty]
@@ -144,7 +143,7 @@ export function FavoritesPage() {
                       </div>
                     </Link>
                     <div className="favorite-item-footer">
-                      <span>收藏于 {favoriteDates[index] ?? '10.18'}</span>
+                      <span>已收藏</span>
                       <button type="button" onClick={() => removeCourse(course)}>
                         取消收藏
                       </button>
@@ -171,7 +170,7 @@ export function FavoritesPage() {
             </span>
           </div>
           <div className="favorite-problem-list">
-            {favoriteProblems.map((problem, index) => {
+            {favoriteProblems.map((problem) => {
               const state = problemState(problem, user)
               const difficulty = difficultyMeta[problem.difficulty]
               const record = user.problemResults[problem.id]
@@ -192,7 +191,6 @@ export function FavoritesPage() {
                         : state === 'failed'
                           ? `未通过 · ${record?.attempts} 次尝试`
                           : '未做'}
-                      <span> · 收藏于 {favoriteDates[index] ?? '10.18'}</span>
                     </p>
                   </div>
                   <div className="favorite-problem-actions">

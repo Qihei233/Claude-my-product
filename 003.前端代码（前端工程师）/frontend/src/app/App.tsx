@@ -1,4 +1,5 @@
-import { Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { HomePage } from '@/pages/HomePage'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { RegisterPage } from '@/pages/auth/RegisterPage'
@@ -22,11 +23,30 @@ import { SiteLayout } from '@/layouts/SiteLayout'
 import { ProfileLayout } from '@/layouts/ProfileLayout'
 import { GuestOnly, RequireAuth } from '@/app/guards'
 import { ScrollToTop } from '@/app/ScrollToTop'
+import { useAuth } from '@/app/AuthContext'
+
+function DefaultHomeRedirect() {
+  const { user } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!user || location.pathname !== '/') return
+    const target = user.preferences.defaultHome
+    if (target === 'home') return
+    if (sessionStorage.getItem('naiwa_default_home_done')) return
+    sessionStorage.setItem('naiwa_default_home_done', '1')
+    navigate(target === 'courses' ? '/courses' : '/practice', { replace: true })
+  }, [user, location.pathname, navigate])
+
+  return null
+}
 
 export function App() {
   return (
     <>
       <ScrollToTop />
+      <DefaultHomeRedirect />
       <Routes>
         <Route element={<SiteLayout />}>
           <Route index element={<HomePage />} />

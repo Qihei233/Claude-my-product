@@ -272,6 +272,37 @@ export async function loginByCode(payload, meta = {}) {
   };
 }
 
+export async function resetPassword(payload) {
+  const { accountType, code, password } = payload;
+  const account = normalizeAccount(accountType, payload.account);
+  const column = accountColumn(accountType);
+
+  const rows = await query(
+    `SELECT id, status FROM users WHERE ${column} = ? LIMIT 1`,
+    [account],
+  );
+  if (!rows.length) throw new ApiError(404, '账号不存在');
+  if (rows[0].status !== 'active') {
+    throw new ApiError(403, '账号已被禁用，请联系管理员');
+  }
+
+  await verifyCode({ accountType, account, purpose: 'reset_password', code });
+  const passwordHash = await hashPassword(password);
+
+  await withTransaction(async (conn) => {
+    await conn.execute(
+      `UPDATE users
+          SET password_hash = ?, failed_login_attempts = 0,
+              locked_until = NULL, updated_at = NOW()
+        WHERE id = ?`,
+      [passwordHash, rows[0].id],
+    );
+    await conn.execute('DELETE FROM sessions WHERE user_id = ?', [rows[0].id]);
+  });
+
+  return { ok: true };
+}
+
 export async function getMe(userId) {
   const user = await loadUserWithProfile(userId);
   if (!user) throw new ApiError(401, '请先登录');

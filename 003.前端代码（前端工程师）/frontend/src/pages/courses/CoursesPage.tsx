@@ -6,9 +6,9 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
 import { PageHeading } from '@/components/ui/PageHeading'
 import { useAuth } from '@/app/AuthContext'
+import { useCatalog } from '@/app/CatalogContext'
 import {
   categoryOptions,
-  courses,
   difficultyOptions,
   statusOptions,
 } from '@/data/courses'
@@ -22,6 +22,7 @@ type SortKey = 'recommended' | 'popular' | 'newest'
 
 export function CoursesPage() {
   const { user } = useAuth()
+  const { courses, loading, error } = useCatalog()
   const [searchParams] = useSearchParams()
   const initialCategory = (searchParams.get('category') as Category | null) ?? 'all'
   const [category, setCategory] = useState<'all' | Category>(
@@ -51,7 +52,7 @@ export function CoursesPage() {
     if (sort === 'popular') result.sort((a, b) => b.learnerCount - a.learnerCount)
     if (sort === 'newest') result.reverse()
     return result
-  }, [category, difficulty, status, search, sort, user])
+  }, [category, courses, difficulty, status, search, sort, user])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -144,6 +145,12 @@ export function CoursesPage() {
         </div>
       </section>
 
+      {error ? (
+        <p className="results-toolbar">
+          <span>{error}</span>
+        </p>
+      ) : null}
+
       <div className="results-toolbar">
         <p>
           共 <strong>{filtered.length}</strong> 门课程 · 这里有你的下一步
@@ -214,9 +221,13 @@ export function CoursesPage() {
       ) : (
         <EmptyState
           image="/frog/lying-looking-up.png"
-          title="这个条件下还没有课程"
-          description="换个关键词，或者重置筛选条件再试试。"
-          action={<Button onClick={resetFilters}>重置筛选</Button>}
+          title={loading ? '课程加载中…' : '这个条件下还没有课程'}
+          description={
+            loading
+              ? '奶蛙正在把课程整理出来，稍等一下。'
+              : '换个关键词，或者重置筛选条件再试试。'
+          }
+          action={loading ? undefined : <Button onClick={resetFilters}>重置筛选</Button>}
         />
       )}
     </div>

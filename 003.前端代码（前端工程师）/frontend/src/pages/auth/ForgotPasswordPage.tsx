@@ -4,6 +4,7 @@ import { Check, Eye, EyeOff, LockKeyhole, ShieldCheck } from 'lucide-react'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/ToastProvider'
+import { resetPassword, sendVerificationCode } from '@/api/auth'
 import { cn } from '@/utils/cn'
 
 const steps = ['验证账号', '设置新密码', '完成']
@@ -32,14 +33,39 @@ export function ForgotPasswordPage() {
       ? account
       : `${account.slice(0, 3)} **** ${account.slice(-4)}`
 
-  const sendCode = () => {
-    if (!account.trim()) {
+  const accountType = account.includes('@') ? 'email' : 'phone'
+
+  const sendCode = async () => {
+    const value = account.trim()
+    if (!value) {
       setError('请先输入注册时使用的手机号或邮箱')
       return
     }
+    if (accountType === 'phone' && !/^1[3-9]\d{9}$/.test(value)) {
+      setError('请输入正确的手机号')
+      return
+    }
+    if (accountType === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setError('请输入正确的邮箱')
+      return
+    }
     setError('')
-    setCountdown(60)
-    showToast('验证码已发送（演示：任意 6 位数字）', 'info')
+    try {
+      const result = await sendVerificationCode({
+        accountType,
+        account: value,
+        purpose: 'reset_password',
+      })
+      setCountdown(60)
+      showToast(
+        result.devCode
+          ? `验证码已发送（开发环境：${result.devCode}）`
+          : `验证码已发送至 ${maskedAccount}`,
+        'info',
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '验证码发送失败')
+    }
   }
 
   const handleVerify = (event: FormEvent) => {
@@ -56,7 +82,7 @@ export function ForgotPasswordPage() {
     setStep(1)
   }
 
-  const handleReset = (event: FormEvent) => {
+  const handleReset = async (event: FormEvent) => {
     event.preventDefault()
     if (!/[A-Za-z]/.test(password) || !/\d/.test(password) || password.length < 8) {
       setError('密码需 8-20 位，且包含字母和数字')
@@ -68,11 +94,25 @@ export function ForgotPasswordPage() {
     }
     setError('')
     setLoading(true)
-    window.setTimeout(() => {
-      setLoading(false)
+    try {
+      await resetPassword({
+        accountType,
+        account: account.trim(),
+        code,
+        password,
+      })
       setStep(2)
-      showToast('密码已更新，请使用新密码登录')
-    }, 500)
+      showToast('密码已更新，请使用新密码登录', 'success')
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : '密码重置失败，请稍后重试'
+      if (message.includes('验证码')) {
+        setStep(0)
+      }
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

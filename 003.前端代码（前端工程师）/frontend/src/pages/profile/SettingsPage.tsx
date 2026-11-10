@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { Clock3, KeyRound, LogOut, Pencil, Smartphone } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { Clock3, ImagePlus, KeyRound, LogOut, Pencil, Smartphone } from 'lucide-react'
+import { sendVerificationCode } from '@/api/auth'
+import { assetUrl } from '@/api/app'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
@@ -19,8 +21,17 @@ interface PasswordFields {
 }
 
 export function SettingsPage() {
-  const { user, updateProfile, updatePreferences, logout } = useAuth()
+  const {
+    user,
+    updateProfile,
+    updatePreferences,
+    changePassword,
+    changePhone,
+    changeAvatar,
+    logout,
+  } = useAuth()
   const { showToast } = useToast()
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const [editOpen, setEditOpen] = useState(false)
   const [nickname, setNickname] = useState(user?.nickname ?? '')
@@ -38,8 +49,10 @@ export function SettingsPage() {
 
   const [phoneOpen, setPhoneOpen] = useState(false)
   const [phone, setPhone] = useState('')
+  const [phoneCode, setPhoneCode] = useState('')
   const [phoneError, setPhoneError] = useState('')
-  const [maskedPhone, setMaskedPhone] = useState('138 **** 0826')
+  const [codeSending, setCodeSending] = useState(false)
+  const [countdown, setCountdown] = useState(0)
 
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [preferences, setPreferences] = useState<UserPreferences>(
@@ -53,7 +66,40 @@ export function SettingsPage() {
       },
   )
 
+  useEffect(() => {
+    if (!countdown) return
+    const timer = window.setInterval(() => {
+      setCountdown((value) => Math.max(0, value - 1))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [countdown])
+
   if (!user) return null
+
+  const maskedPhone = user.phone ?? '未绑定'
+
+  const onAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      showToast('请选择图片文件', 'error')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('头像图片不能超过 2MB', 'error')
+      return
+    }
+    try {
+      await changeAvatar(file)
+      showToast('头像已更新', 'success')
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : '头像上传失败，请稍后重试',
+        'error',
+      )
+    }
+  }
 
   const openProfileEditor = () => {
     setNickname(user.nickname)
@@ -80,7 +126,7 @@ export function SettingsPage() {
     setEditGoals([...withoutInterest, goal])
   }
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
     const nextNickname = nickname.trim()
     if (!nextNickname) {
       setProfileError('昵称不能为空')
@@ -90,16 +136,20 @@ export function SettingsPage() {
       setProfileError('昵称最多 16 个字符')
       return
     }
-    updateProfile({
-      nickname: nextNickname,
-      bio: bio.trim().slice(0, 60),
-      goals: editGoals,
-    })
-    setEditOpen(false)
-    showToast('个人资料已更新', 'success')
+    try {
+      await updateProfile({
+        nickname: nextNickname,
+        bio: bio.trim().slice(0, 50),
+        goals: editGoals,
+      })
+      setEditOpen(false)
+      showToast('个人资料已更新', 'success')
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : '保存失败，请稍后重试')
+    }
   }
 
-  const savePassword = () => {
+  const savePassword = async () => {
     const nextErrors: Record<string, string> = {}
     if (!passwordFields.current) nextErrors.current = '请输入当前密码'
     if (passwordFields.next.length < 8) nextErrors.next = '新密码至少 8 位'
@@ -111,26 +161,77 @@ export function SettingsPage() {
     }
     setPasswordErrors(nextErrors)
     if (Object.keys(nextErrors).length) return
-    setPasswordOpen(false)
-    setPasswordFields({ current: '', next: '', confirm: '' })
-    showToast('密码修改成功（原型演示）', 'success')
+    try {
+      await changePassword(passwordFields.current, passwordFields.next)
+      setPasswordOpen(false)
+      setPasswordFields({ current: '', next: '', confirm: '' })
+      showToast('密码修改成功', 'success')
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : '密码修改失败，请稍后重试',
+        'error',
+      )
+    }
   }
 
-  const savePhone = () => {
+  const sendPhoneCode = async () => {
     if (!/^1[3-9]\d{9}$/.test(phone)) {
       setPhoneError('请输入 11 位有效手机号')
       return
     }
-    setMaskedPhone(`${phone.slice(0, 3)} **** ${phone.slice(-4)}`)
-    setPhoneOpen(false)
-    setPhone('')
+    setCodeSending(true)
     setPhoneError('')
-    showToast('手机号已更新（原型演示）', 'success')
+    try {
+      const result = await sendVerificationCode({
+        accountType: 'phone',
+        account: phone,
+        purpose: 'register',
+      })
+      showToast(
+        result.devCode
+          ? `验证码已发送（开发环境：${result.devCode}）`
+          : '验证码已发送至新手机号',
+        'info',
+      )
+      setCountdown(60)
+    } catch (err) {
+      setPhoneError(err instanceof Error ? err.message : '验证码发送失败')
+    } finally {
+      setCodeSending(false)
+    }
   }
 
-  const savePreferences = () => {
-    updatePreferences(preferences)
-    showToast('设置已保存，会在之后的学习中生效', 'success')
+  const savePhone = async () => {
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      setPhoneError('请输入 11 位有效手机号')
+      return
+    }
+    if (!/^\d{6}$/.test(phoneCode)) {
+      setPhoneError('请输入 6 位验证码')
+      return
+    }
+    try {
+      await changePhone(phone, phoneCode)
+      setPhoneOpen(false)
+      setPhone('')
+      setPhoneCode('')
+      setPhoneError('')
+      showToast('手机号已更新', 'success')
+    } catch (err) {
+      setPhoneError(err instanceof Error ? err.message : '手机号更新失败')
+    }
+  }
+
+  const savePreferences = async () => {
+    try {
+      await updatePreferences(preferences)
+      showToast('设置已保存，会在之后的学习中生效', 'success')
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : '设置保存失败，请稍后重试',
+        'error',
+      )
+    }
   }
 
   const goalLabels = user.goals
@@ -147,7 +248,7 @@ export function SettingsPage() {
       <section className="content-card settings-section">
         <h2>个人资料</h2>
         <div className="settings-profile-row">
-          <Avatar initial={user.initials} size="xl" />
+          <Avatar initial={user.initials} image={assetUrl(user.avatar)} size="xl" />
           <div className="settings-profile-copy">
             <strong>{user.nickname}</strong>
             <p>{user.bio}</p>
@@ -158,14 +259,31 @@ export function SettingsPage() {
               {!goalLabels.length && <span className="settings-muted">还没有设置学习目标</span>}
             </div>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Pencil size={15} />}
-            onClick={openProfileEditor}
-          >
-            编辑资料
-          </Button>
+          <div className="settings-profile-actions">
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              hidden
+              onChange={onAvatarChange}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<ImagePlus size={15} />}
+              onClick={() => avatarInputRef.current?.click()}
+            >
+              更换头像
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Pencil size={15} />}
+              onClick={openProfileEditor}
+            >
+              编辑资料
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -193,7 +311,7 @@ export function SettingsPage() {
             <div>
               <strong>手机绑定</strong>
               <p>
-                {maskedPhone} · 已绑定
+                {user.phone ? `${maskedPhone} · 已绑定` : '未绑定'}
               </p>
             </div>
             <Button
@@ -357,12 +475,12 @@ export function SettingsPage() {
             <textarea
               className="textarea"
               rows={3}
-              maxLength={60}
+              maxLength={50}
               value={bio}
               onChange={(event) => setBio(event.target.value)}
               placeholder="写一句想对自己说的话"
             />
-            <span className="field-hint">{bio.length} / 60</span>
+            <span className="field-hint">{bio.length} / 50</span>
           </label>
           <div className="field">
             <span className="field-label">学习目标（最多 2 项）</span>
@@ -390,7 +508,7 @@ export function SettingsPage() {
         open={passwordOpen}
         onClose={() => setPasswordOpen(false)}
         title="修改密码"
-        description="原型不会保存真实密码，验证仅用于演示。"
+        description="定期更新密码，能让账号更安全。"
         footer={
           <>
             <Button variant="secondary" onClick={() => setPasswordOpen(false)}>
@@ -470,6 +588,28 @@ export function SettingsPage() {
             placeholder="请输入 11 位手机号"
             leading={<Smartphone size={16} />}
           />
+          <Field
+            label="验证码"
+            name="phone-code"
+            inputMode="numeric"
+            maxLength={6}
+            value={phoneCode}
+            onChange={(event) => {
+              setPhoneCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+              setPhoneError('')
+            }}
+            placeholder="请输入 6 位验证码"
+            trailing={
+              <button
+                type="button"
+                className="input-code-button"
+                disabled={countdown > 0 || codeSending}
+                onClick={sendPhoneCode}
+              >
+                {countdown ? `${countdown}s 后重发` : '获取验证码'}
+              </button>
+            }
+          />
         </div>
       </Modal>
 
@@ -485,9 +625,9 @@ export function SettingsPage() {
               继续学习
             </Button>
             <Button
-              onClick={() => {
-                logout()
+              onClick={async () => {
                 setLogoutOpen(false)
+                await logout()
                 window.location.replace('/')
               }}
             >

@@ -16,8 +16,9 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { useAuth } from '@/app/AuthContext'
+import { assetUrl } from '@/api/app'
 import { useToast } from '@/components/ui/ToastProvider'
-import { messages, getLevelInfo } from '@/data/mockData'
+import { getLevelInfo } from '@/data/mockData'
 import { cn } from '@/utils/cn'
 
 const navItems = [
@@ -52,9 +53,7 @@ export function SiteHeader() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const unreadCount = user
-    ? messages.filter((message) => !user.readMessageIds.includes(message.id)).length
-    : 0
+  const unreadCount = user?.unreadMessageCount ?? 0
   const level = user ? getLevelInfo(user.exp) : null
 
   const goToProtected = (path: string) => {
@@ -65,7 +64,7 @@ export function SiteHeader() {
     }
   }
 
-  const onLogout = () => {
+  const onLogout = async () => {
     const leavingProtectedRoute =
       location.pathname.startsWith('/profile') ||
       location.pathname.startsWith('/learn') ||
@@ -73,7 +72,7 @@ export function SiteHeader() {
       location.pathname === '/onboarding'
     setLogoutOpen(false)
     setProfileOpen(false)
-    logout()
+    await logout()
     if (leavingProtectedRoute) {
       window.location.replace('/')
       return
@@ -131,7 +130,11 @@ export function SiteHeader() {
                     aria-expanded={profileOpen}
                     onClick={() => setProfileOpen((open) => !open)}
                   >
-                    <Avatar initial={user.initials} size="sm" />
+                    <Avatar
+                      initial={user.initials}
+                      image={assetUrl(user.avatar)}
+                      size="sm"
+                    />
                     <ChevronDown
                       size={14}
                       className={cn('profile-chevron', profileOpen && 'is-open')}
@@ -140,7 +143,11 @@ export function SiteHeader() {
                   {profileOpen && (
                     <div className="profile-menu" role="menu">
                       <div className="profile-menu-head">
-                        <Avatar initial={user.initials} size="md" />
+                        <Avatar
+                          initial={user.initials}
+                          image={assetUrl(user.avatar)}
+                          size="md"
+                        />
                         <div>
                           <strong>{user.nickname}</strong>
                           <span>

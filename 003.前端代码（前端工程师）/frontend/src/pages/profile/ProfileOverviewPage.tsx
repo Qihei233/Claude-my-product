@@ -1,21 +1,45 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BookOpen, Code2, Trophy } from 'lucide-react'
 import { AchievementBadge } from '@/components/profile/AchievementBadge'
 import { Button } from '@/components/ui/Button'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { useAuth } from '@/app/AuthContext'
-import { achievements, getLevelInfo, learningRecords } from '@/data/mockData'
-import type { Achievement } from '@/types'
+import { fetchAchievements, fetchRecords } from '@/api/app'
+import { getLevelInfo } from '@/data/mockData'
+import type { Achievement, LearningRecord } from '@/types'
 import { cn } from '@/utils/cn'
 
-const milestoneIds = ['first-code', 'streak-7', 'practice-master']
+const milestoneIds = ['first_line', 'streak_7', 'practice_50']
 
 export function ProfileOverviewPage() {
   const { user } = useAuth()
+  const [achievements, setAchievements] = useState<Achievement[]>([])
+  const [recentRecords, setRecentRecords] = useState<LearningRecord[]>([])
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    Promise.all([fetchAchievements(), fetchRecords()])
+      .then(([achievementList, records]) => {
+        if (cancelled) return
+        setAchievements(achievementList)
+        setRecentRecords(records.slice(0, 2))
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAchievements([])
+          setRecentRecords([])
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
+
   if (!user) return null
 
   const level = getLevelInfo(user.exp)
-  const recentRecords = learningRecords.slice(0, 2)
   const milestones = milestoneIds
     .map((id) => achievements.find((achievement) => achievement.id === id))
     .filter((achievement): achievement is Achievement => Boolean(achievement))
@@ -131,7 +155,7 @@ export function ProfileOverviewPage() {
                 <h3>{achievement.name}</h3>
                 <p>{achievement.description}</p>
                 <span>
-                  {achievement.id === 'practice-master' && !unlocked
+                  {achievement.id === 'practice_50' && !unlocked
                     ? `当前 ${user.passedProblemCount}/50 题`
                     : unlocked
                       ? '已获得'
@@ -141,7 +165,7 @@ export function ProfileOverviewPage() {
             )
           })}
         </div>
-        {user.achievements['frog-doctor'] && (
+        {user.achievements['frog_doctor'] && (
           <p className="profile-milestone-extra">
             <Trophy size={15} /> 你已经抵达蛙博士，继续做喜欢的事吧。
           </p>

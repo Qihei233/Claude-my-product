@@ -1,23 +1,43 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AchievementBadge } from '@/components/profile/AchievementBadge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useAuth } from '@/app/AuthContext'
-import { achievements, getLevelInfo } from '@/data/mockData'
+import { fetchAchievements } from '@/api/app'
+import { getLevelInfo } from '@/data/mockData'
 import type { Achievement } from '@/types'
 import { cn } from '@/utils/cn'
 
 type AchievementFilter = 'all' | 'earned' | 'locked'
 
 function progressOf(achievement: Achievement, passedProblems: number, streak: number, level: number) {
-  if (achievement.id === 'practice-master') return `当前 ${passedProblems} / 50 题`
-  if (achievement.id === 'streak-30') return `当前连续 ${streak} / 30 天`
-  if (achievement.id === 'frog-doctor') return `当前 Lv.${level}`
+  if (achievement.id === 'practice_50') return `当前 ${passedProblems} / 50 题`
+  if (achievement.id === 'streak_30') return `当前连续 ${streak} / 30 天`
+  if (achievement.id === 'frog_doctor') return `当前 Lv.${level}`
   return '继续学习即可解锁'
 }
 
 export function AchievementsPage() {
   const { user } = useAuth()
   const [filter, setFilter] = useState<AchievementFilter>('all')
+  const [achievements, setAchievements] = useState<Achievement[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchAchievements()
+      .then((list) => {
+        if (!cancelled) setAchievements(list)
+      })
+      .catch(() => {
+        if (!cancelled) setAchievements([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
 
   if (!user) return null
 
@@ -44,7 +64,7 @@ export function AchievementsPage() {
           <h2>
             已点亮 <strong>{earnedCount}</strong> / {achievements.length} 枚成就
           </h2>
-          <p>还有新的小惊喜，在下一次坚持里等你。</p>
+          <p>{loading ? '成就加载中…' : '还有新的小惊喜，在下一次坚持里等你。'}</p>
           <div className="achievement-filters" role="tablist" aria-label="成就筛选">
             <button
               type="button"
@@ -110,11 +130,13 @@ export function AchievementsPage() {
       ) : (
         <EmptyState
           image="/frog/lying-looking-up.png"
-          title="这里暂时空空的"
+          title={loading ? '成就加载中…' : '这里暂时空空的'}
           description={
-            filter === 'earned'
-              ? '去完成第一节课，点亮属于你的第一枚勋章吧。'
-              : '你已获得全部成就，奶蛙在下一段旅程等你。'
+            loading
+              ? '奶蛙正在整理你的勋章墙。'
+              : filter === 'earned'
+                ? '去完成第一节课，点亮属于你的第一枚勋章吧。'
+                : '你已获得全部成就，奶蛙在下一段旅程等你。'
           }
         />
       )}

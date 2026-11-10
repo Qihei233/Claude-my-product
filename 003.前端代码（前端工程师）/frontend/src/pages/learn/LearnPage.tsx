@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -23,12 +23,12 @@ import { Modal } from '@/components/ui/Modal'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { useToast } from '@/components/ui/ToastProvider'
 import { useAuth } from '@/app/AuthContext'
-import { getAdjacentLesson, getCourse, getLesson } from '@/data/courses'
-import { getLessonContent } from '@/data/learningContent'
+import { useCatalog, findAdjacentLessons, flattenCourseLessons } from '@/app/CatalogContext'
+import { fetchLesson, runLessonApi, type LessonDetailData } from '@/api/app'
+import { ApiError } from '@/api/auth'
 import { getLevelInfo } from '@/data/mockData'
 import type { CodeRunResult, Course, Lesson } from '@/types'
 import { getCourseProgress, getLessonStatus } from '@/utils/course'
-import { executePython, isLearningTaskSolved } from '@/utils/pythonSimulator'
 import { readStorage, STORAGE_KEYS, writeStorage } from '@/utils/storage'
 import { cn } from '@/utils/cn'
 
@@ -43,18 +43,42 @@ function LearnWorkspace({ course, lesson }: { course: Course; lesson: Lesson }) 
   const { user, completeLesson } = useAuth()
   const { showToast } = useToast()
   const navigate = useNavigate()
-  const content = getLessonContent(course, lesson)
+  const [detail, setDetail] = useState<LessonDetailData | null>(null)
+  const [contentLoading, setContentLoading] = useState(true)
+  const content = detail?.content
   const chapterIndex = course.chapters.findIndex((chapter) => chapter.id === lesson.chapterId)
   const chapter = course.chapters[chapterIndex]
   const level = user ? getLevelInfo(user.exp) : null
   const progress = getCourseProgress(user, course)
   const lessonStatus = getLessonStatus(user, course, lesson)
-  const previousLesson = getAdjacentLesson(course, lesson.id, -1)
-  const nextLesson = getAdjacentLesson(course, lesson.id, 1)
+  const { previous: previousLesson, next: nextLesson } = findAdjacentLessons(
+    course,
+    lesson.id,
+  )
 
   const [code, setCode] = useState(
-    () => readStorage<string>(STORAGE_KEYS.draft(lesson.id)) ?? content.initialCode,
+    () => readStorage<string>(STORAGE_KEYS.draft(lesson.id)) ?? '',
   )
+
+  useEffect(() => {
+    let cancelled = false
+    setContentLoading(true)
+    fetchLesson(lesson.id)
+      .then((data) => {
+        if (cancelled) return
+        setDetail(data)
+        setCode((current) => current || data.content.initialCode)
+      })
+      .catch(() => {
+        if (!cancelled) setDetail(null)
+      })
+      .finally(() => {
+        if (!cancelled) setContentLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [lesson.id])
   const [openChapters, setOpenChapters] = useState<Set<string>>(
     () => new Set([lesson.chapterId]),
   )
@@ -79,46 +103,87 @@ function LearnWorkspace({ course, lesson }: { course: Course; lesson: Lesson }) 
     if (running || submitting) return
     setRunning(true)
     setResult(null)
-    window.setTimeout(() => {
-      setResult(executePython(code))
-      setRunning(false)
-    }, 320)
+    runLessonApi(lesson.id, code)
+      .then((run) => {
+        const ok = run.accepted || (run.results.length === 0 && !run.error)
+        setResult({
+          status: ok ? 'success' : 'error',
+          output: run.output || run.error || '程序没有输出',
+          detail:
+            run.expected !== null && run.expected !== undefined
+              ? `期望输出：${run.expected}`
+              : undefined,
+          friendlyError: run.friendlyError || undefined,
+          duration: `${(run.durationMs / 1000).toFixed(2)}s`,
+        })
+      })
+      .catch((err) => {
+        setResult({
+          status: 'error',
+          output: err instanceof Error ? err.message : '运行失败，请稍后重试',
+        })
+      })
+      .finally(() => setRunning(false))
   }
 
   const onSubmit = () => {
     if (running || submitting) return
     setSubmitting(true)
     setResult(null)
-    window.setTimeout(() => {
-      const runResult = executePython(code)
-      if (runResult.status !== 'success') {
-        setResult(runResult)
-        setSubmitting(false)
-        showToast('代码还没有运行成功，按提示改一改再提交～', 'error')
-        return
-      }
-      if (lesson.id === 'py-basic-01-c3-l2' && !isLearningTaskSolved(code)) {
+    window.setTimeout(async () => {
+      try {
+        const outcome = await completeLesson(course.id, lesson.id, code)
+        setCompletion(outcome)
         setResult({
-          status: 'error',
-          output: '检查未通过：还没有完成字符串拼接任务。',
-          friendlyError:
-            '试着保留 name 变量，并用 print("你好，" + name) 把文字和变量连接起来。',
+          status: 'success',
+          output: outcome.alreadyCompleted
+            ? '这一节之前已经完成过啦，再练一次也很好。'
+            : `提交通过！本节完成，获得 +${outcome.expGained} EXP。`,
+          duration: '0.12s',
         })
+        if (!outcome.alreadyCompleted) {
+          showToast(`本节完成，+${outcome.expGained} EXP`, 'success')
+        }
+      } catch (err) {
+        if (err instanceof ApiError) {
+          const details = err.details as
+            | {
+                output?: string
+                expected?: string | null
+                friendlyError?: string
+                passedCases?: number
+                totalCases?: number
+                error?: string
+              }
+            | undefined
+          const lines = [
+            `判题未通过${
+              details?.passedCases !== undefined
+                ? `（${details.passedCases}/${details.totalCases ?? 1} 个用例通过）`
+                : ''
+            }`,
+          ]
+          if (details?.output) lines.push(`你的输出：\n${details.output}`)
+          if (details?.expected !== null && details?.expected !== undefined) {
+            lines.push(`期望输出：\n${details.expected}`)
+          }
+          if (details?.error) lines.push(details.error)
+          setResult({
+            status: 'error',
+            output: lines.join('\n\n'),
+            friendlyError:
+              details?.friendlyError || err.message || '代码还没有通过测试用例。',
+          })
+          showToast(err.message || '判题未通过，再试一次吧', 'error')
+        } else {
+          showToast(
+            err instanceof Error ? err.message : '提交失败，请稍后重试',
+            'error',
+          )
+        }
+      } finally {
         setSubmitting(false)
-        showToast('还差一点点，看看控制台的提示吧', 'error')
-        return
       }
-      const outcome = completeLesson(course.id, lesson.id)
-      setCompletion(outcome)
-      setResult({
-        status: 'success',
-        output: outcome.alreadyCompleted
-          ? '这一节之前已经完成过啦，再练一次也很好。'
-          : `提交通过！本节完成，获得 +${outcome.expGained} EXP。`,
-        duration: '0.12s',
-      })
-      setSubmitting(false)
-      if (!outcome.alreadyCompleted) showToast(`本节完成，+${outcome.expGained} EXP`, 'success')
     }, 420)
   }
 
@@ -263,12 +328,14 @@ function LearnWorkspace({ course, lesson }: { course: Course; lesson: Lesson }) 
         <main className="learn-content">
           <article className="learn-article">
             <span className="lesson-chapter-badge">
-              第 {chapterIndex + 1} 章 · {displayChapter} · 约 {content.estimatedMinutes} 分钟
+              第 {chapterIndex + 1} 章 · {displayChapter} · 约 {content?.estimatedMinutes ?? 10} 分钟
             </span>
             <h1>{cleanTitle}</h1>
-            <p className="lesson-intro">{content.intro}</p>
+            <p className="lesson-intro">
+              {contentLoading ? '课时内容加载中…' : content?.intro ?? ''}
+            </p>
 
-            {content.sections.map((section) => (
+            {(content?.sections ?? []).map((section) => (
               <section key={section.title} className="lesson-section">
                 <h2>{section.title}</h2>
                 {section.body && <p>{section.body}</p>}
@@ -291,8 +358,8 @@ function LearnWorkspace({ course, lesson }: { course: Course; lesson: Lesson }) 
             <section className="lesson-task-card">
               <span className="lesson-task-eyebrow">动手时间</span>
               <h2>现在，换你来试试</h2>
-              <p>{content.task}</p>
-              <p className="lesson-goal">目标：{content.goal}</p>
+              <p>{content?.task ?? ''}</p>
+              <p className="lesson-goal">目标：{content?.goal ?? ''}</p>
             </section>
 
             <footer className="learn-article-footer">
@@ -360,7 +427,7 @@ function LearnWorkspace({ course, lesson }: { course: Course; lesson: Lesson }) 
               type="button"
               className="learn-plain-action"
               onClick={() => {
-                persistDraft(content.initialCode)
+                persistDraft(content?.initialCode ?? '')
                 setResult(null)
                 showToast('代码已重置为初始状态', 'info')
               }}
@@ -378,7 +445,7 @@ function LearnWorkspace({ course, lesson }: { course: Course; lesson: Lesson }) 
 
           {showHint && (
             <InfoBanner tone="warning" className="learn-hint-banner">
-              {content.hint}
+              {content?.hint ?? '先检查引号、括号和缩进，再运行一次。'}
             </InfoBanner>
           )}
 
@@ -489,9 +556,19 @@ function LearnWorkspace({ course, lesson }: { course: Course; lesson: Lesson }) 
 export function LearnPage() {
   const { courseId, lessonId } = useParams()
   const { user } = useAuth()
+  const { getCourse, loading } = useCatalog()
   const course = getCourse(courseId)
-  const lesson = course ? getLesson(course, lessonId) : undefined
+  const lesson = course
+    ? flattenCourseLessons(course).find((item) => item.id === lessonId)
+    : undefined
 
+  if (loading && !course) {
+    return (
+      <div className="page-container">
+        <p>课程加载中…</p>
+      </div>
+    )
+  }
   if (!course || !lesson) return <Navigate to="/404" replace />
   if (!user) return null
   if (getLessonStatus(user, course, lesson) === 'locked') {
